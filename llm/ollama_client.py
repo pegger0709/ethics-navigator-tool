@@ -15,6 +15,7 @@ OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
 CHAT_MODEL = os.getenv("CHAT_MODEL", "llama3.2")
 EMBED_MODEL = os.getenv("EMBED_MODEL", "nomic-embed-text")
 CHAT_TEMPERATURE = float(os.getenv("CHAT_TEMPERATURE", "0"))
+CHAT_SEED = int(os.getenv("CHAT_SEED", "42"))
 
 
 def get_client() -> Client:
@@ -60,7 +61,7 @@ def chat(messages: list[dict], stream: bool = True):
     """
     client = get_client()
 
-    options = {"temperature": CHAT_TEMPERATURE}
+    options = {"temperature": CHAT_TEMPERATURE, "seed": CHAT_SEED}
 
     if not stream:
         response = client.chat(model=CHAT_MODEL, messages=messages, options=options)
