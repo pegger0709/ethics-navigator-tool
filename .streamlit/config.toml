@@ -1,0 +1,9 @@
+# Streamlit theme and layout. Do NOT store secrets here — use .streamlit/secrets.toml.
+
+[theme]
+primaryColor = "#4f8bf9"
+base = "light"
+
+[server]
+# Allow larger document uploads (in MB).
+maxUploadSize = 200
