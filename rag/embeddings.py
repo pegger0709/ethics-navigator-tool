@@ -141,13 +141,15 @@ def collection_is_empty() -> bool:
 
 
 def clear_knowledge_base(directory: str = DOCUMENTS_DIR) -> None:
-    """Delete all indexed documents and remove saved files from the documents folder.
+    """Remove all indexed documents and delete saved files from the documents folder.
 
-    Leaves the collection itself intact (empty) so it's ready for new uploads.
+    Deletes documents by ID rather than destroying and recreating the collection,
+    so all operations go through a single client instance with consistent state.
     """
-    client = get_chroma_client()
-    client.delete_collection(COLLECTION_NAME)
-    get_collection()  # recreate empty
+    collection = get_collection()
+    all_ids = collection.get(include=[])["ids"]
+    if all_ids:
+        collection.delete(ids=all_ids)
     if os.path.isdir(directory):
         for filename in os.listdir(directory):
             if filename == ".gitkeep":
