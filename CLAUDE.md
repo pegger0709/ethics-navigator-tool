@@ -61,7 +61,7 @@ ethics-navigator-tool/
 
 ## Invariants
 
-- Ollama runs as a local service; host and model names are constants in `llm/ollama_client.py` (env-overridable). Default chat model `tinyllama`, embed model `nomic-embed-text`. All model names live here only.
+- Ollama runs as a local service; host and model names are constants in `llm/ollama_client.py` (env-overridable). Default chat model `llama3.2`, embed model `nomic-embed-text`. All model names live here only.
 - Chroma client is env-driven (`rag/embeddings.py`): `PersistentClient(path=chroma_db/)` locally, `HttpClient(host, port)` when `CHROMA_HOST` is set (the Docker stack). Never use the in-memory client.
 - Embedding goes through Chroma's `OllamaEmbeddingFunction` attached to the collection, so ingestion and query embedding share one path; only chat goes through `ollama_client.py`.
 - Conversation history is managed in `st.session_state`; do not store it in Chroma.

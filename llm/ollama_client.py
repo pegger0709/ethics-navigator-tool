@@ -12,8 +12,9 @@ from ollama import Client
 load_dotenv()  # idempotent; loads .env if present
 
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
-CHAT_MODEL = os.getenv("CHAT_MODEL", "tinyllama")
+CHAT_MODEL = os.getenv("CHAT_MODEL", "llama3.2")
 EMBED_MODEL = os.getenv("EMBED_MODEL", "nomic-embed-text")
+CHAT_TEMPERATURE = float(os.getenv("CHAT_TEMPERATURE", "0"))
 
 
 def get_client() -> Client:
@@ -59,12 +60,14 @@ def chat(messages: list[dict], stream: bool = True):
     """
     client = get_client()
 
+    options = {"temperature": CHAT_TEMPERATURE}
+
     if not stream:
-        response = client.chat(model=CHAT_MODEL, messages=messages)
+        response = client.chat(model=CHAT_MODEL, messages=messages, options=options)
         return response.message.content
 
     def _token_stream():
-        for chunk in client.chat(model=CHAT_MODEL, messages=messages, stream=True):
+        for chunk in client.chat(model=CHAT_MODEL, messages=messages, stream=True, options=options):
             token = chunk.message.content
             if token:
                 yield token

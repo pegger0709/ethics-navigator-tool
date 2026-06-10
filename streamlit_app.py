@@ -39,6 +39,16 @@ with st.sidebar:
     st.header("Your documents")
     st.caption("Everything stays on this machine — nothing is sent to the cloud.")
 
+    sources = embeddings.list_sources()
+    if sources:
+        st.subheader("In knowledge base")
+        for source in sources:
+            st.markdown(f"- {source}")
+    else:
+        st.info("No documents indexed yet.")
+
+    st.divider()
+
     with st.form("upload-form", clear_on_submit=True):
         uploaded = st.file_uploader(
             "Add documents",
@@ -49,12 +59,11 @@ with st.sidebar:
     if submitted and uploaded:
         with st.spinner("Indexing documents…"):
             added = embeddings.ingest_uploads(uploaded)
-        st.success(f"Indexed {added} chunks from {len(uploaded)} file(s).")
+        st.rerun()
 
-    if st.button("Re-index folder"):
-        with st.spinner("Re-indexing data/documents…"):
-            added = embeddings.ingest()
-        st.success(f"Indexed {added} chunks.")
+    if st.button("🗑️ Clear knowledge base", type="secondary"):
+        embeddings.clear_knowledge_base()
+        st.rerun()
 
     top_k = st.slider("Sources per answer", min_value=1, max_value=10, value=4)
 

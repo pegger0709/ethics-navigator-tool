@@ -128,9 +128,33 @@ def ingest_uploads(uploaded_files) -> int:
     return total
 
 
+def list_sources() -> list[str]:
+    """Return sorted unique source filenames currently in the collection."""
+    results = get_collection().get(include=["metadatas"])
+    sources = {(m or {}).get("source", "unknown") for m in results["metadatas"]}
+    return sorted(sources)
+
+
 def collection_is_empty() -> bool:
     """True when the collection has no documents yet."""
     return get_collection().count() == 0
+
+
+def clear_knowledge_base(directory: str = DOCUMENTS_DIR) -> None:
+    """Delete all indexed documents and remove saved files from the documents folder.
+
+    Leaves the collection itself intact (empty) so it's ready for new uploads.
+    """
+    client = get_chroma_client()
+    client.delete_collection(COLLECTION_NAME)
+    get_collection()  # recreate empty
+    if os.path.isdir(directory):
+        for filename in os.listdir(directory):
+            if filename == ".gitkeep":
+                continue
+            path = os.path.join(directory, filename)
+            if os.path.isfile(path):
+                os.remove(path)
 
 
 if __name__ == "__main__":
