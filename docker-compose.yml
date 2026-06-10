@@ -1,0 +1,35 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8501:8501"
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+      CHROMA_HOST: chroma
+      CHROMA_PORT: "8000"
+    volumes:
+      # Documents added via the UI are saved here and persist across restarts.
+      - ./data/documents:/app/data/documents
+    depends_on:
+      - ollama
+      - chroma
+
+  ollama:
+    image: ollama/ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      # Downloaded models persist here so they aren't re-fetched on restart.
+      - ollama_models:/root/.ollama
+
+  chroma:
+    image: chromadb/chroma
+    ports:
+      - "8000:8000"
+    volumes:
+      # Current Chroma images store data at /data (was /chroma/chroma).
+      - chroma_data:/data
+
+volumes:
+  ollama_models:
+  chroma_data:
