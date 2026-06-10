@@ -22,6 +22,9 @@ streamlit run streamlit_app.py
 # Ingest documents into Chroma (the app also auto-ingests an empty collection on startup)
 python -m rag.embeddings
 
+# Run the test suite (integration tests: requires Ollama running; slow — exercises the real model)
+pytest
+
 # Add a dependency: edit requirements.txt by hand, then reinstall
 # Do NOT use `pip freeze` — it captures transitive deps and pollutes the file
 
