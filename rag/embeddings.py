@@ -122,9 +122,14 @@ def ingest_uploads(uploaded_files) -> int:
     total = 0
     for uploaded in uploaded_files:
         data = uploaded.getvalue()
-        with open(os.path.join(DOCUMENTS_DIR, uploaded.name), "wb") as handle:
+        # basename strips any directory components a crafted upload name might
+        # carry, keeping writes inside DOCUMENTS_DIR.
+        safe_name = os.path.basename(uploaded.name)
+        if not safe_name or safe_name in (".", ".."):
+            continue  # skip names that don't resolve to a real file
+        with open(os.path.join(DOCUMENTS_DIR, safe_name), "wb") as handle:
             handle.write(data)
-        total += _add_document(collection, extract_text(uploaded.name, data), uploaded.name)
+        total += _add_document(collection, extract_text(safe_name, data), safe_name)
     return total
 
 

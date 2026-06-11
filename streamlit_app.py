@@ -67,6 +67,11 @@ with st.sidebar:
 
     top_k = st.slider("Sources per answer", min_value=1, max_value=10, value=4)
 
+    if st.session_state["messages"]:
+        if st.button("🧹 Clear conversation"):
+            st.session_state["messages"] = []
+            st.rerun()
+
 # --- Main: chat --------------------------------------------------------------
 st.title("🧭 Ethics Navigator")
 st.caption("Ask questions about your documents. Answers are grounded in them.")

@@ -17,7 +17,11 @@ SYSTEM_PROMPT = (
 
 def retrieve(query: str, k: int = 4) -> list[dict]:
     """Return the top-``k`` chunks for ``query`` as ``{text, source}`` dicts."""
-    results = get_collection().query(query_texts=[query], n_results=k)
+    collection = get_collection()
+    count = collection.count()
+    if count == 0:
+        return []
+    results = collection.query(query_texts=[query], n_results=min(k, count))
     documents = results.get("documents", [[]])[0]
     metadatas = results.get("metadatas", [[]])[0]
     chunks = []
