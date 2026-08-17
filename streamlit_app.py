@@ -60,10 +60,6 @@ with st.sidebar:
             added = embeddings.ingest_uploads(uploaded)
         st.rerun()
 
-    if st.button("🗑️ Clear knowledge base", type="secondary"):
-        embeddings.clear_knowledge_base()
-        st.rerun()
-
     top_k = st.slider(
         "Sources per answer",
         min_value=1,

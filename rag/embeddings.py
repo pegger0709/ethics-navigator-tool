@@ -178,25 +178,6 @@ def list_sources() -> list[str]:
     return sorted(_sources_in(get_collection()))
 
 
-def clear_knowledge_base(directory: str = DOCUMENTS_DIR) -> None:
-    """Remove all indexed documents and delete saved files from the documents folder.
-
-    Deletes documents by ID rather than destroying and recreating the collection,
-    so all operations go through a single client instance with consistent state.
-    """
-    collection = get_collection()
-    all_ids = collection.get(include=[])["ids"]
-    if all_ids:
-        collection.delete(ids=all_ids)
-    if os.path.isdir(directory):
-        for filename in os.listdir(directory):
-            if filename == ".gitkeep":
-                continue
-            path = os.path.join(directory, filename)
-            if os.path.isfile(path):
-                os.remove(path)
-
-
 if __name__ == "__main__":
     count = ingest()
     print(f"Ingested {count} chunks from '{DOCUMENTS_DIR}' into '{COLLECTION_NAME}'.")
