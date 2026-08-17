@@ -64,7 +64,14 @@ with st.sidebar:
         embeddings.clear_knowledge_base()
         st.rerun()
 
-    top_k = st.slider("Sources per answer", min_value=1, max_value=10, value=4)
+    top_k = st.slider(
+        "Sources per answer",
+        min_value=1,
+        max_value=30,
+        value=30,
+        help="Higher values retrieve more context for broad questions but "
+        "make responses slower (especially on CPU-only setups).",
+    )
 
     if st.session_state["messages"]:
         if st.button("🧹 Clear conversation"):

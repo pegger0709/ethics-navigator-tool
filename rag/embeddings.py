@@ -118,17 +118,27 @@ def load_documents(directory: str = DOCUMENTS_DIR) -> list[tuple[str, str]]:
 
 
 def ingest(directory: str = DOCUMENTS_DIR) -> int:
-    """Ingest documents in ``directory`` that aren't already indexed. Returns chunks added.
+    """Sync Chroma with ``directory``: index new documents, prune removed ones.
 
     Skipping already-indexed sources (rather than gating on "is the collection
     empty") makes this resumable: a restart after a partial failure only redoes
     the document that didn't finish, and dropping in a new file gets it indexed
-    without needing to clear the whole knowledge base first.
+    without needing to clear the whole knowledge base first. Sources that are
+    indexed but no longer on disk (deleted or renamed) are removed, so
+    replacing a document doesn't leave its old chunks behind permanently.
+    Returns the number of chunks added.
     """
     collection = get_collection()
+    on_disk = load_documents(directory)
+    on_disk_sources = {source for _, source in on_disk}
     already_indexed = _sources_in(collection)
+
+    stale_sources = already_indexed - on_disk_sources
+    if stale_sources:
+        collection.delete(where={"source": {"$in": list(stale_sources)}})
+
     total = 0
-    for text, source in load_documents(directory):
+    for text, source in on_disk:
         if source in already_indexed:
             continue
         total += _add_document(collection, text, source)

@@ -52,16 +52,21 @@ def ensure_models(client: Client | None = None) -> None:
             client.pull(model)
 
 
-def chat(messages: list[dict], stream: bool = True):
+def chat(messages: list[dict], stream: bool = True, num_ctx: int | None = None):
     """Send a chat conversation to Ollama.
 
     With ``stream=True`` (default) returns a generator of content token strings,
     suitable for ``st.write_stream``. With ``stream=False`` returns the full
-    response string.
+    response string. ``num_ctx`` overrides Ollama's default context window (a
+    fixed 2048 tokens regardless of what the model supports) — callers that
+    stuff a lot of retrieved text into the prompt need to raise it or the extra
+    context is silently truncated.
     """
     client = get_client()
 
     options = {"temperature": CHAT_TEMPERATURE, "seed": CHAT_SEED}
+    if num_ctx is not None:
+        options["num_ctx"] = num_ctx
 
     if not stream:
         response = client.chat(model=CHAT_MODEL, messages=messages, options=options)

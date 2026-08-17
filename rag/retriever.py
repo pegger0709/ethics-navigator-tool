@@ -3,6 +3,10 @@
 from llm import ollama_client
 from rag.embeddings import get_collection
 
+DEFAULT_NUM_CTX = 2048  # Ollama's own default, used as a floor
+RESPONSE_MARGIN_TOKENS = 1024  # headroom for the model's own answer
+CHARS_PER_TOKEN = 4  # rough estimate, good enough for sizing the context window
+
 SYSTEM_PROMPT = (
     "You are Ethics Navigator, an assistant that answers questions using only "
     "the provided context excerpts from the user's documents. Follow these rules:\n"
@@ -47,6 +51,18 @@ def build_messages(query: str, chunks: list[dict], history: list[dict]) -> list[
     return messages
 
 
+def _num_ctx_for(messages: list[dict]) -> int:
+    """Size the context window to fit ``messages`` plus room for the answer.
+
+    Ollama's fixed default (2048 tokens) is fine for small ``top_k`` but starts
+    silently truncating the retrieved context once more chunks are requested,
+    which would otherwise defeat the point of raising ``top_k`` at all.
+    """
+    total_chars = sum(len(m["content"]) for m in messages)
+    estimated_tokens = total_chars // CHARS_PER_TOKEN
+    return max(DEFAULT_NUM_CTX, estimated_tokens + RESPONSE_MARGIN_TOKENS)
+
+
 def answer(query: str, history: list[dict] | None = None, k: int = 4):
     """Retrieve context and stream an answer.
 
@@ -56,4 +72,5 @@ def answer(query: str, history: list[dict] | None = None, k: int = 4):
     history = history or []
     chunks = retrieve(query, k=k)
     messages = build_messages(query, chunks, history)
-    return ollama_client.chat(messages, stream=True), chunks
+    num_ctx = _num_ctx_for(messages)
+    return ollama_client.chat(messages, stream=True, num_ctx=num_ctx), chunks
