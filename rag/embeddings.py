@@ -23,6 +23,9 @@ COLLECTION_NAME = "ethics_docs"
 DOCUMENTS_DIR = os.getenv("DOCUMENTS_DIR", "data/documents")
 CHROMA_PERSIST_DIR = os.getenv("CHROMA_PERSIST_DIR", "chroma_db")
 SUPPORTED_EXTENSIONS = {".txt", ".md", ".pdf"}
+# CPU-only embedding of a large batch can take a while; the client default (60s)
+# is too tight for that, so it's raised and left configurable.
+EMBED_TIMEOUT = int(os.getenv("EMBED_TIMEOUT", "300"))
 
 
 def get_chroma_client():
@@ -42,7 +45,9 @@ def get_chroma_client():
 def get_collection():
     """Get-or-create the documents collection with the Ollama embedder."""
     client = get_chroma_client()
-    embedder = OllamaEmbeddingFunction(url=OLLAMA_HOST, model_name=EMBED_MODEL)
+    embedder = OllamaEmbeddingFunction(
+        url=OLLAMA_HOST, model_name=EMBED_MODEL, timeout=EMBED_TIMEOUT
+    )
     return client.get_or_create_collection(
         name=COLLECTION_NAME, embedding_function=embedder
     )
@@ -73,16 +78,26 @@ def chunk_text(text: str, size: int = 1000, overlap: int = 150) -> list[str]:
     return chunks
 
 
+UPSERT_BATCH_SIZE = 100
+
+
 def _add_document(collection, text: str, source: str) -> int:
-    """Chunk one document's text and upsert it. Returns the chunk count."""
+    """Chunk one document's text and upsert it in batches. Returns the chunk count.
+
+    Large documents can produce thousands of chunks; embedding them in one call
+    risks a client-side timeout on a CPU-only Ollama backend, so upserts are
+    split into smaller batches (see Chroma's guidance: 50-250 per batch).
+    """
     chunks = chunk_text(text)
-    if not chunks:
-        return 0
-    collection.upsert(
-        ids=[f"{source}:{i}" for i in range(len(chunks))],
-        documents=chunks,
-        metadatas=[{"source": source} for _ in chunks],
-    )
+    ids = [f"{source}:{i}" for i in range(len(chunks))]
+    for start in range(0, len(chunks), UPSERT_BATCH_SIZE):
+        end = start + UPSERT_BATCH_SIZE
+        batch = chunks[start:end]
+        collection.upsert(
+            ids=ids[start:end],
+            documents=batch,
+            metadatas=[{"source": source} for _ in batch],
+        )
     return len(chunks)
 
 
@@ -103,10 +118,19 @@ def load_documents(directory: str = DOCUMENTS_DIR) -> list[tuple[str, str]]:
 
 
 def ingest(directory: str = DOCUMENTS_DIR) -> int:
-    """Ingest every document in ``directory`` into Chroma. Returns total chunks."""
+    """Ingest documents in ``directory`` that aren't already indexed. Returns chunks added.
+
+    Skipping already-indexed sources (rather than gating on "is the collection
+    empty") makes this resumable: a restart after a partial failure only redoes
+    the document that didn't finish, and dropping in a new file gets it indexed
+    without needing to clear the whole knowledge base first.
+    """
     collection = get_collection()
+    already_indexed = _sources_in(collection)
     total = 0
     for text, source in load_documents(directory):
+        if source in already_indexed:
+            continue
         total += _add_document(collection, text, source)
     return total
 
@@ -133,16 +157,15 @@ def ingest_uploads(uploaded_files) -> int:
     return total
 
 
+def _sources_in(collection) -> set[str]:
+    """Return the set of unique source filenames already in ``collection``."""
+    results = collection.get(include=["metadatas"])
+    return {(m or {}).get("source", "unknown") for m in results["metadatas"]}
+
+
 def list_sources() -> list[str]:
     """Return sorted unique source filenames currently in the collection."""
-    results = get_collection().get(include=["metadatas"])
-    sources = {(m or {}).get("source", "unknown") for m in results["metadatas"]}
-    return sorted(sources)
-
-
-def collection_is_empty() -> bool:
-    """True when the collection has no documents yet."""
-    return get_collection().count() == 0
+    return sorted(_sources_in(get_collection()))
 
 
 def clear_knowledge_base(directory: str = DOCUMENTS_DIR) -> None:

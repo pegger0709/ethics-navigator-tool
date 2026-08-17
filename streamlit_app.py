@@ -16,8 +16,7 @@ def prepare() -> bool:
     on success; the caller surfaces failures (e.g. Ollama/Chroma unreachable).
     """
     ollama_client.ensure_models()
-    if embeddings.collection_is_empty():
-        embeddings.ingest()
+    embeddings.ingest()
     return True
 
 
