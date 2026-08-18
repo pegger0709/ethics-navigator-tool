@@ -64,18 +64,67 @@ def extract_text(filename: str, data: bytes) -> str:
     raise ValueError(f"Unsupported file type: {filename}")
 
 
-def chunk_text(text: str, size: int = 1000, overlap: int = 150) -> list[str]:
-    """Split text into overlapping character chunks, skipping empty ones."""
+CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "500"))
+CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", "100"))
+
+
+def chunk_text(
+    text: str, size: int = CHUNK_SIZE, overlap: int = CHUNK_OVERLAP
+) -> list[str]:
+    """Split text into chunks that respect line boundaries.
+
+    Cutting at a fixed character offset packed many self-contained units into
+    one chunk — the OECD definitions list put six definitions in a single
+    chunk, so its embedding averaged all six and a query for any one of them
+    matched only weakly. Retrieval recall for such passages was near zero
+    regardless of how large ``k`` grew.
+
+    Packing whole lines instead keeps definitions and numbered paragraphs
+    intact. Overlap carries trailing lines into the next chunk so statements
+    split across a boundary are still reachable.
+    """
     if size <= overlap:
         raise ValueError("size must be greater than overlap")
-    chunks = []
-    start = 0
-    while start < len(text):
-        chunk = text[start : start + size].strip()
-        if chunk:
-            chunks.append(chunk)
-        start += size - overlap
-    return chunks
+
+    lines = [line.strip() for line in text.splitlines()]
+    lines = [line for line in lines if line]
+
+    chunks: list[str] = []
+    current: list[str] = []
+    current_len = 0
+
+    def flush() -> list[str]:
+        """Emit the current chunk and return the lines to carry over."""
+        chunks.append("\n".join(current))
+        carry: list[str] = []
+        carry_len = 0
+        for previous in reversed(current):
+            if carry_len + len(previous) + 1 > overlap:
+                break
+            carry.insert(0, previous)
+            carry_len += len(previous) + 1
+        return carry
+
+    for line in lines:
+        # A single line longer than the target can't be packed; split it on
+        # character boundaries rather than emitting one oversized chunk.
+        while len(line) > size:
+            if current:
+                current = flush()
+                current_len = sum(len(item) + 1 for item in current)
+            chunks.append(line[:size])
+            line = line[size - overlap :]
+
+        if current and current_len + len(line) + 1 > size:
+            current = flush()
+            current_len = sum(len(item) + 1 for item in current)
+
+        current.append(line)
+        current_len += len(line) + 1
+
+    if current:
+        chunks.append("\n".join(current))
+    return [chunk for chunk in chunks if chunk.strip()]
 
 
 UPSERT_BATCH_SIZE = 100

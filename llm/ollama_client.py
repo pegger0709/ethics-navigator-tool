@@ -12,10 +12,23 @@ from ollama import Client
 load_dotenv()  # idempotent; loads .env if present
 
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
-CHAT_MODEL = os.getenv("CHAT_MODEL", "llama3.1:8b")
+# Answers user questions. gpt-oss:20b is a mixture-of-experts model (~3.6B
+# active of 20B total), so it is far faster than its size suggests.
+CHAT_MODEL = os.getenv("CHAT_MODEL", "gpt-oss:20b")
 EMBED_MODEL = os.getenv("EMBED_MODEL", "nomic-embed-text")
+# Routes each question to an answer mode. A two-way classification is easy, so
+# this runs on a small model to keep the added per-question latency small.
+CLASSIFIER_MODEL = os.getenv("CLASSIFIER_MODEL", "llama3.2")
+# Grades answers during evaluation only. Deliberately a different family from
+# CHAT_MODEL: a model grading its own output shares its blind spots.
+JUDGE_MODEL = os.getenv("JUDGE_MODEL", "gemma4:12b")
 CHAT_TEMPERATURE = float(os.getenv("CHAT_TEMPERATURE", "0"))
 CHAT_SEED = int(os.getenv("CHAT_SEED", "42"))
+
+# Models the app itself needs at runtime. JUDGE_MODEL is excluded on purpose —
+# it is only used by evals/, and colleagues running the app should not have to
+# download it.
+RUNTIME_MODELS = (CHAT_MODEL, EMBED_MODEL, CLASSIFIER_MODEL)
 
 
 def get_client() -> Client:
@@ -39,15 +52,16 @@ def _installed_models(client: Client) -> set[str]:
     return names
 
 
-def ensure_models(client: Client | None = None) -> None:
-    """Pull CHAT_MODEL and EMBED_MODEL if they are not already installed.
+def ensure_models(models: tuple[str, ...] = RUNTIME_MODELS, client: Client | None = None) -> None:
+    """Pull any of ``models`` that are not already installed.
 
     This removes the need for a manual ``ollama pull`` step — the app calls it
-    on startup so a fresh machine self-prepares.
+    on startup so a fresh machine self-prepares. Defaults to the runtime models
+    only; evals pass JUDGE_MODEL explicitly.
     """
     client = client or get_client()
     installed = _installed_models(client)
-    for model in (CHAT_MODEL, EMBED_MODEL):
+    for model in models:
         if model not in installed:
             # Stream the pull: a non-streaming pull holds one connection open
             # for the whole (multi-GB) download and gets dropped before it
@@ -56,7 +70,12 @@ def ensure_models(client: Client | None = None) -> None:
                 pass
 
 
-def chat(messages: list[dict], stream: bool = True, num_ctx: int | None = None):
+def chat(
+    messages: list[dict],
+    stream: bool = True,
+    num_ctx: int | None = None,
+    model: str | None = None,
+):
     """Send a chat conversation to Ollama.
 
     With ``stream=True`` (default) returns a generator of content token strings,
@@ -64,20 +83,22 @@ def chat(messages: list[dict], stream: bool = True, num_ctx: int | None = None):
     response string. ``num_ctx`` overrides Ollama's default context window (a
     fixed 2048 tokens regardless of what the model supports) — callers that
     stuff a lot of retrieved text into the prompt need to raise it or the extra
-    context is silently truncated.
+    context is silently truncated. ``model`` overrides CHAT_MODEL, for the
+    classifier and judge which deliberately run on different models.
     """
     client = get_client()
+    model = model or CHAT_MODEL
 
     options = {"temperature": CHAT_TEMPERATURE, "seed": CHAT_SEED}
     if num_ctx is not None:
         options["num_ctx"] = num_ctx
 
     if not stream:
-        response = client.chat(model=CHAT_MODEL, messages=messages, options=options)
+        response = client.chat(model=model, messages=messages, options=options)
         return response.message.content
 
     def _token_stream():
-        for chunk in client.chat(model=CHAT_MODEL, messages=messages, stream=True, options=options):
+        for chunk in client.chat(model=model, messages=messages, stream=True, options=options):
             token = chunk.message.content
             if token:
                 yield token

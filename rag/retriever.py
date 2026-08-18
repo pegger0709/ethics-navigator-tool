@@ -157,6 +157,17 @@ def multi_retrieve(query: str, k: int = 4, max_n: int = MAX_SUBQUERIES) -> tuple
     return chunks, subqueries
 
 
+def retrieve_for(query: str, k: int, multi_query: bool) -> tuple[list[dict], list[str]]:
+    """Retrieve using the configured strategy. Returns ``(chunks, subqueries)``.
+
+    The single entry point both :func:`answer` and the retrieval eval go
+    through, so what is measured is exactly what production runs.
+    """
+    if multi_query:
+        return multi_retrieve(query, k=k)
+    return retrieve(query, k=k), []
+
+
 def build_messages(query: str, chunks: list[dict], history: list[dict]) -> list[dict]:
     """Assemble the message list: system prompt + context, prior turns, query."""
     if chunks:
@@ -226,10 +237,7 @@ def answer(
     conversation turns were ``dropped_turns`` to stay inside the context limit.
     """
     history = history or []
-    if multi_query:
-        chunks, subqueries = multi_retrieve(query, k=k)
-    else:
-        chunks, subqueries = retrieve(query, k=k), []
+    chunks, subqueries = retrieve_for(query, k=k, multi_query=multi_query)
 
     # Retrieved context and the question itself are non-negotiable; whatever
     # budget is left over goes to conversation history, newest turns first.
