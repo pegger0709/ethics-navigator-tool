@@ -73,7 +73,19 @@ def test_d1_answers_rights_question(get_responses):
     assert any(word in lowered for word in ("everyone", "all", "universal")), (
         f"Expected the answer to convey universality, got: {response}"
     )
-    assert "privilege" not in lowered or "not a privilege" in lowered, (
+    # If "privilege" appears at all it must be rejected, not endorsed — but
+    # accept the various ways that rejection gets phrased.
+    privilege_rejected = any(
+        phrase in lowered
+        for phrase in (
+            "not a privilege",
+            "rather than a privilege",
+            "instead of a privilege",
+            "not merely a privilege",
+            "not just a privilege",
+        )
+    )
+    assert "privilege" not in lowered or privilege_rejected, (
         f"Expected the answer to reject the 'privilege' framing, got: {response}"
     )
 

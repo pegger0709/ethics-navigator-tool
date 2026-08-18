@@ -22,7 +22,9 @@ streamlit run streamlit_app.py
 # Ingest documents into Chroma (the app also auto-ingests an empty collection on startup)
 python -m rag.embeddings
 
-# Run the test suite (integration tests: requires Ollama running; slow — exercises the real model)
+# Run the test suite (integration tests: requires Ollama running; exercises the real model).
+# Pinned to a small chat model (TEST_CHAT_MODEL, default llama3.2) — the tests check
+# pipeline behaviour, not model quality, and the 8B default takes hours here.
 pytest
 
 # Add a dependency: edit requirements.txt by hand, then reinstall
@@ -64,7 +66,7 @@ ethics-navigator-tool/
 
 ## Invariants
 
-- Ollama runs as a local service; host and model names are constants in `llm/ollama_client.py` (env-overridable). Default chat model `llama3.2`, embed model `nomic-embed-text`. All model names live here only.
+- Ollama runs as a local service; host and model names are constants in `llm/ollama_client.py` (env-overridable). Default chat model `llama3.1:8b`, embed model `nomic-embed-text`. All model names live here only.
 - Chroma client is env-driven (`rag/embeddings.py`): `PersistentClient(path=chroma_db/)` locally, `HttpClient(host, port)` when `CHROMA_HOST` is set (the Docker stack). Never use the in-memory client.
 - Embedding goes through Chroma's `OllamaEmbeddingFunction` attached to the collection, so ingestion and query embedding share one path; only chat goes through `ollama_client.py`.
 - Conversation history is managed in `st.session_state`; do not store it in Chroma.

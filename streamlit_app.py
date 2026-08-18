@@ -69,6 +69,14 @@ with st.sidebar:
         "make responses slower (especially on CPU-only setups).",
     )
 
+    multi_query = st.toggle(
+        "Smart search",
+        value=True,
+        help="Splits your question into several targeted searches before "
+        "answering, so broad questions cover more ground. Costs one extra "
+        "model call per question; narrow factual questions don't need it.",
+    )
+
     if st.session_state["messages"]:
         if st.button("🧹 Clear conversation"):
             st.session_state["messages"] = []
@@ -90,10 +98,17 @@ if prompt := st.chat_input("Ask a question…", disabled=not backend_ready):
     with st.chat_message("assistant"):
         # Pass prior turns (excluding the just-added question) as history.
         history = st.session_state["messages"][:-1]
-        token_stream, chunks = retriever.answer(prompt, history=history, k=top_k)
+        with st.spinner("Searching your documents…"):
+            token_stream, chunks, subqueries = retriever.answer(
+                prompt, history=history, k=top_k, multi_query=multi_query
+            )
         response = st.write_stream(token_stream)
+        if subqueries:
+            with st.expander(f"Search queries ({len(subqueries)})"):
+                for subquery in subqueries:
+                    st.markdown(f"- {subquery}")
         if chunks:
-            with st.expander("Sources"):
+            with st.expander(f"Sources ({len(chunks)})"):
                 for chunk in chunks:
                     st.markdown(f"**{chunk['source']}**")
                     st.caption(chunk["text"][:500] + ("…" if len(chunk["text"]) > 500 else ""))

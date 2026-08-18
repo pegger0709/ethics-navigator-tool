@@ -28,6 +28,12 @@ P2 = "How long should I bake a chocolate cake?"
 
 SUBSETS = [(), (D1,), (D2,), (D1, D2)]
 
+# The suite checks pipeline behaviour — determinism, grounding, refusal — not
+# the quality of any one model, so it runs against a small fast model. The
+# app's default (llama3.1:8b) answers better but is far too slow to test with:
+# this same suite took ~12 hours against it versus minutes against a 3B model.
+TEST_CHAT_MODEL = os.getenv("TEST_CHAT_MODEL", "llama3.2")
+
 
 def subset_id(subset: tuple[str, ...]) -> str:
     """Readable pytest parameter id for a document subset."""
@@ -36,7 +42,16 @@ def subset_id(subset: tuple[str, ...]) -> str:
 
 
 @pytest.fixture(scope="session")
-def ollama_available():
+def fast_chat_model():
+    """Pin the suite to ``TEST_CHAT_MODEL`` instead of the app's default."""
+    patcher = pytest.MonkeyPatch()
+    patcher.setattr(ollama_client, "CHAT_MODEL", TEST_CHAT_MODEL)
+    yield TEST_CHAT_MODEL
+    patcher.undo()
+
+
+@pytest.fixture(scope="session")
+def ollama_available(fast_chat_model):
     """Skip the whole suite when Ollama is unreachable."""
     try:
         ollama_client.ensure_models()

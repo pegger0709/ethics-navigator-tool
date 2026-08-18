@@ -12,7 +12,7 @@ from ollama import Client
 load_dotenv()  # idempotent; loads .env if present
 
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
-CHAT_MODEL = os.getenv("CHAT_MODEL", "llama3.2")
+CHAT_MODEL = os.getenv("CHAT_MODEL", "llama3.1:8b")
 EMBED_MODEL = os.getenv("EMBED_MODEL", "nomic-embed-text")
 CHAT_TEMPERATURE = float(os.getenv("CHAT_TEMPERATURE", "0"))
 CHAT_SEED = int(os.getenv("CHAT_SEED", "42"))
@@ -49,7 +49,11 @@ def ensure_models(client: Client | None = None) -> None:
     installed = _installed_models(client)
     for model in (CHAT_MODEL, EMBED_MODEL):
         if model not in installed:
-            client.pull(model)
+            # Stream the pull: a non-streaming pull holds one connection open
+            # for the whole (multi-GB) download and gets dropped before it
+            # finishes. Interrupted pulls resume where they left off.
+            for _ in client.pull(model, stream=True):
+                pass
 
 
 def chat(messages: list[dict], stream: bool = True, num_ctx: int | None = None):

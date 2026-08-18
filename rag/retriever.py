@@ -1,11 +1,27 @@
 """Query logic: embed query -> retrieve chunks -> build prompt -> answer."""
 
+import re
+
 from llm import ollama_client
 from rag.embeddings import get_collection
 
 DEFAULT_NUM_CTX = 2048  # Ollama's own default, used as a floor
 RESPONSE_MARGIN_TOKENS = 1024  # headroom for the model's own answer
 CHARS_PER_TOKEN = 4  # rough estimate, good enough for sizing the context window
+
+# Kept small deliberately: each extra sub-query lengthens the decomposition
+# response *and* widens the merged context, so both LLM calls get slower.
+MAX_SUBQUERIES = 3
+MIN_CHUNKS_PER_SUBQUERY = 3
+
+DECOMPOSE_PROMPT = (
+    "You turn a user's question into targeted search queries for a document "
+    "search engine. Write one short query per line, each covering a distinct "
+    "aspect of the question. Use the concrete vocabulary the source documents "
+    "would use, not the abstract wording of the question. Output at most "
+    "{max_n} lines, with no numbering, no bullets and no commentary — just the "
+    "queries themselves."
+)
 
 SYSTEM_PROMPT = (
     "You are Ethics Navigator, an assistant that answers questions using only "
@@ -20,18 +36,97 @@ SYSTEM_PROMPT = (
 
 
 def retrieve(query: str, k: int = 4) -> list[dict]:
-    """Return the top-``k`` chunks for ``query`` as ``{text, source}`` dicts."""
+    """Return the top-``k`` chunks for ``query`` as ``{id, text, source, distance}`` dicts."""
     collection = get_collection()
     count = collection.count()
     if count == 0:
         return []
     results = collection.query(query_texts=[query], n_results=min(k, count))
+    ids = results.get("ids", [[]])[0]
     documents = results.get("documents", [[]])[0]
     metadatas = results.get("metadatas", [[]])[0]
+    distances = results.get("distances", [[]])[0]
     chunks = []
-    for text, meta in zip(documents, metadatas):
-        chunks.append({"text": text, "source": (meta or {}).get("source", "unknown")})
+    for chunk_id, text, meta, distance in zip(ids, documents, metadatas, distances):
+        chunks.append(
+            {
+                "id": chunk_id,
+                "text": text,
+                "source": (meta or {}).get("source", "unknown"),
+                "distance": distance,
+            }
+        )
     return chunks
+
+
+def _parse_subqueries(raw: str, max_n: int) -> list[str]:
+    """Pull one search query per line out of the model's decomposition response.
+
+    Tolerates the numbering, bullets and quoting a small model tends to add
+    despite being told not to. Anything that doesn't look like a query (blank
+    lines, preamble sentences) is dropped.
+    """
+    subqueries = []
+    for line in raw.splitlines():
+        line = line.strip()
+        line = re.sub(r"^\s*(?:\d+[.)]|[-*•])\s*", "", line)  # strip list markers
+        line = line.strip().strip('"').strip("'").strip()
+        # Real queries are short; longer lines are almost always commentary.
+        if not line or len(line) > 200:
+            continue
+        if line.endswith(":"):  # e.g. "Here are the queries:"
+            continue
+        subqueries.append(line)
+        if len(subqueries) >= max_n:
+            break
+    return subqueries
+
+
+def generate_subqueries(query: str, max_n: int = MAX_SUBQUERIES) -> list[str]:
+    """Ask the model to split ``query`` into targeted retrieval queries.
+
+    Returns an empty list if the model is unreachable or produces nothing
+    usable, so callers can fall back to plain single-query retrieval.
+    """
+    messages = [
+        {"role": "system", "content": DECOMPOSE_PROMPT.format(max_n=max_n)},
+        {"role": "user", "content": query},
+    ]
+    try:
+        raw = ollama_client.chat(messages, stream=False)
+    except Exception:  # noqa: BLE001 — decomposition is best-effort
+        return []
+    return _parse_subqueries(raw or "", max_n)
+
+
+def multi_retrieve(query: str, k: int = 4, max_n: int = MAX_SUBQUERIES) -> tuple[list[dict], list[str]]:
+    """Retrieve for several targeted sub-queries and merge the results.
+
+    A broad question ("summarize the ethical principles") embeds close to
+    generic framing text, so similarity search fills the top ranks with
+    boilerplate and buries the specific provisions. Splitting it into concrete
+    sub-queries lets each one rank its own topic highly, which surfaces content
+    a single query would miss without needing a much larger ``k``.
+
+    The chunk budget stays near ``k``: it is shared across the sub-queries plus
+    the original query, so context size (and latency) stays comparable.
+    Returns ``(chunks, subqueries)``; ``subqueries`` is empty when decomposition
+    failed and this fell back to a single query.
+    """
+    subqueries = generate_subqueries(query, max_n=max_n)
+    # Always include the original query so nothing is lost if the split is poor.
+    queries = [query] + subqueries
+    per_query = max(MIN_CHUNKS_PER_SUBQUERY, k // len(queries))
+
+    best_by_id: dict[str, dict] = {}
+    for sub in queries:
+        for chunk in retrieve(sub, k=per_query):
+            existing = best_by_id.get(chunk["id"])
+            if existing is None or chunk["distance"] < existing["distance"]:
+                best_by_id[chunk["id"]] = chunk
+
+    chunks = sorted(best_by_id.values(), key=lambda c: c["distance"])
+    return chunks, subqueries
 
 
 def build_messages(query: str, chunks: list[dict], history: list[dict]) -> list[dict]:
@@ -63,14 +158,30 @@ def _num_ctx_for(messages: list[dict]) -> int:
     return max(DEFAULT_NUM_CTX, estimated_tokens + RESPONSE_MARGIN_TOKENS)
 
 
-def answer(query: str, history: list[dict] | None = None, k: int = 4):
+def answer(
+    query: str,
+    history: list[dict] | None = None,
+    k: int = 4,
+    multi_query: bool = False,
+):
     """Retrieve context and stream an answer.
 
-    Returns ``(token_stream, chunks)`` where ``token_stream`` is a generator of
-    content tokens and ``chunks`` are the retrieved sources for display.
+    With ``multi_query=True`` the question is first split into targeted
+    sub-queries (one extra LLM call) so broad questions retrieve more evenly
+    across topics; see :func:`multi_retrieve`. Narrow factual questions gain
+    nothing from this and just pay the extra call.
+
+    Returns ``(token_stream, chunks, subqueries)`` where ``token_stream`` is a
+    generator of content tokens, ``chunks`` are the retrieved sources for
+    display, and ``subqueries`` are the generated sub-queries (empty unless
+    multi-query retrieval ran and succeeded).
     """
     history = history or []
-    chunks = retrieve(query, k=k)
+    if multi_query:
+        chunks, subqueries = multi_retrieve(query, k=k)
+    else:
+        chunks, subqueries = retrieve(query, k=k), []
     messages = build_messages(query, chunks, history)
     num_ctx = _num_ctx_for(messages)
-    return ollama_client.chat(messages, stream=True, num_ctx=num_ctx), chunks
+    stream = ollama_client.chat(messages, stream=True, num_ctx=num_ctx)
+    return stream, chunks, subqueries
