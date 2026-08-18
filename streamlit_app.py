@@ -60,27 +60,43 @@ with st.sidebar:
             added = embeddings.ingest_uploads(uploaded)
         st.rerun()
 
-    top_k = st.slider(
-        "Sources per answer",
-        min_value=1,
-        max_value=30,
-        value=30,
-        help="Higher values retrieve more context for broad questions but "
-        "make responses slower (especially on CPU-only setups).",
+    st.divider()
+    st.subheader("Answer mode")
+    mode = st.radio(
+        "Answer mode",
+        options=list(retriever.MODES),
+        index=list(retriever.MODES).index(retriever.DEFAULT_MODE),
+        label_visibility="collapsed",
+        captions=[m["hint"] for m in retriever.MODES.values()],
     )
+    preset = retriever.MODES[mode]
 
-    multi_query = st.toggle(
-        "Smart search",
-        value=True,
-        help="Splits your question into several targeted searches before "
-        "answering, so broad questions cover more ground. Costs one extra "
-        "model call per question; narrow factual questions don't need it.",
-    )
+    with st.expander("Advanced"):
+        st.caption("Overrides the mode above.")
+        top_k = st.slider(
+            "Sources per answer",
+            min_value=1,
+            max_value=30,
+            value=preset["k"],
+            help="How many document excerpts are retrieved to answer from. "
+            "More covers broad questions better but is slower on CPU.",
+        )
+        multi_query = st.toggle(
+            "Split question into several searches",
+            value=preset["multi_query"],
+            help="Rewrites your question as a few targeted searches before "
+            "answering, so broad questions cover more of the documents. Costs "
+            "one extra model call; narrow factual questions don't need it.",
+        )
 
     if st.session_state["messages"]:
         if st.button("🧹 Clear conversation"):
             st.session_state["messages"] = []
             st.rerun()
+        st.caption(
+            "Older turns are dropped automatically only when the conversation "
+            "no longer fits the model's context."
+        )
 
 # --- Main: chat --------------------------------------------------------------
 st.title("🧭 Ethics Navigator")
@@ -99,13 +115,18 @@ if prompt := st.chat_input("Ask a question…", disabled=not backend_ready):
         # Pass prior turns (excluding the just-added question) as history.
         history = st.session_state["messages"][:-1]
         with st.spinner("Searching your documents…"):
-            token_stream, chunks, subqueries = retriever.answer(
+            token_stream, chunks, meta = retriever.answer(
                 prompt, history=history, k=top_k, multi_query=multi_query
             )
         response = st.write_stream(token_stream)
-        if subqueries:
-            with st.expander(f"Search queries ({len(subqueries)})"):
-                for subquery in subqueries:
+        if meta["dropped_turns"]:
+            st.caption(
+                f"⚠️ Dropped the {meta['dropped_turns']} oldest conversation "
+                "turn(s) to stay within the context limit."
+            )
+        if meta["subqueries"]:
+            with st.expander(f"Search queries ({len(meta['subqueries'])})"):
+                for subquery in meta["subqueries"]:
                     st.markdown(f"- {subquery}")
         if chunks:
             with st.expander(f"Sources ({len(chunks)})"):

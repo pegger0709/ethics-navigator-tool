@@ -1,5 +1,6 @@
 """Query logic: embed query -> retrieve chunks -> build prompt -> answer."""
 
+import os
 import re
 
 from llm import ollama_client
@@ -8,6 +9,33 @@ from rag.embeddings import get_collection
 DEFAULT_NUM_CTX = 2048  # Ollama's own default, used as a floor
 RESPONSE_MARGIN_TOKENS = 1024  # headroom for the model's own answer
 CHARS_PER_TOKEN = 4  # rough estimate, good enough for sizing the context window
+
+# Hard ceiling on prompt size. The model itself allows far more, but every
+# extra token costs CPU time, so conversation history is trimmed to fit this
+# rather than being allowed to grow without bound.
+MAX_CONTEXT_TOKENS = int(os.getenv("MAX_CONTEXT_TOKENS", "8192"))
+
+# Named retrieval modes. Broad questions need many chunks and sub-query
+# decomposition to cover a document evenly; narrow factual ones are answered
+# from a couple of chunks and only pay latency for the extras.
+MODES: dict[str, dict] = {
+    "Simple question answering": {
+        "k": 4,
+        "multi_query": False,
+        "hint": "Fastest. For specific facts stated in one place.",
+    },
+    "Deeper questions": {
+        "k": 12,
+        "multi_query": True,
+        "hint": "Slower. For questions spanning a few parts of a document.",
+    },
+    "Broad synthesis": {
+        "k": 30,
+        "multi_query": True,
+        "hint": "Slowest. For 'summarize everything about X' questions.",
+    },
+}
+DEFAULT_MODE = "Simple question answering"
 
 # Kept small deliberately: each extra sub-query lengthens the decomposition
 # response *and* widens the merged context, so both LLM calls get slower.
@@ -146,6 +174,28 @@ def build_messages(query: str, chunks: list[dict], history: list[dict]) -> list[
     return messages
 
 
+def _total_chars(messages: list[dict]) -> int:
+    return sum(len(m["content"]) for m in messages)
+
+
+def _trim_history(history: list[dict], available_chars: int) -> list[dict]:
+    """Keep the most recent turns that fit in ``available_chars``.
+
+    History is dropped oldest-first rather than cleared wholesale, so a long
+    conversation degrades gradually instead of losing all its context at once.
+    """
+    kept: list[dict] = []
+    used = 0
+    for message in reversed(history):  # newest first
+        cost = len(message["content"])
+        if used + cost > available_chars:
+            break
+        kept.append(message)
+        used += cost
+    kept.reverse()
+    return kept
+
+
 def _num_ctx_for(messages: list[dict]) -> int:
     """Size the context window to fit ``messages`` plus room for the answer.
 
@@ -171,17 +221,27 @@ def answer(
     across topics; see :func:`multi_retrieve`. Narrow factual questions gain
     nothing from this and just pay the extra call.
 
-    Returns ``(token_stream, chunks, subqueries)`` where ``token_stream`` is a
-    generator of content tokens, ``chunks`` are the retrieved sources for
-    display, and ``subqueries`` are the generated sub-queries (empty unless
-    multi-query retrieval ran and succeeded).
+    Returns ``(token_stream, chunks, meta)``. ``meta`` carries the generated
+    ``subqueries`` (empty unless multi-query retrieval ran) and how many older
+    conversation turns were ``dropped_turns`` to stay inside the context limit.
     """
     history = history or []
     if multi_query:
         chunks, subqueries = multi_retrieve(query, k=k)
     else:
         chunks, subqueries = retrieve(query, k=k), []
-    messages = build_messages(query, chunks, history)
+
+    # Retrieved context and the question itself are non-negotiable; whatever
+    # budget is left over goes to conversation history, newest turns first.
+    budget_chars = (MAX_CONTEXT_TOKENS - RESPONSE_MARGIN_TOKENS) * CHARS_PER_TOKEN
+    fixed_chars = _total_chars(build_messages(query, chunks, []))
+    kept_history = _trim_history(history, max(0, budget_chars - fixed_chars))
+
+    messages = build_messages(query, chunks, kept_history)
     num_ctx = _num_ctx_for(messages)
     stream = ollama_client.chat(messages, stream=True, num_ctx=num_ctx)
-    return stream, chunks, subqueries
+    meta = {
+        "subqueries": subqueries,
+        "dropped_turns": len(history) - len(kept_history),
+    }
+    return stream, chunks, meta
