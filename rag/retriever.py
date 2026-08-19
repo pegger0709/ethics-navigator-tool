@@ -4,7 +4,7 @@ import os
 import re
 
 from llm import ollama_client
-from rag.embeddings import get_collection
+from rag.embeddings import KIND_CONTENT, KIND_SUMMARY, get_collection
 
 DEFAULT_NUM_CTX = 2048  # Ollama's own default, used as a floor
 RESPONSE_MARGIN_TOKENS = 1024  # headroom for the model's own answer
@@ -15,27 +15,39 @@ CHARS_PER_TOKEN = 4  # rough estimate, good enough for sizing the context window
 # rather than being allowed to grow without bound.
 MAX_CONTEXT_TOKENS = int(os.getenv("MAX_CONTEXT_TOKENS", "8192"))
 
-# Named retrieval modes. Broad questions need many chunks and sub-query
-# decomposition to cover a document evenly; narrow factual ones are answered
-# from a couple of chunks and only pay latency for the extras.
+# The two question types need different sources, not different amounts of the
+# same source. Specific questions are answered from verbatim excerpts, where
+# k=4 was measured to retrieve every known-good passage. Broad questions are
+# answered from pre-built digests (rag/summaries.py), because similarity search
+# over excerpts finds 0 of 3 known-relevant passages for them at any practical k.
+MODE_QA = "Question answering"
+MODE_BROAD = "Broad principles"
+
 MODES: dict[str, dict] = {
-    "Simple question answering": {
+    MODE_QA: {
         "k": 4,
+        "kind": KIND_CONTENT,
         "multi_query": False,
-        "hint": "Fastest. For specific facts stated in one place.",
+        "hint": "Specific facts, quoted from the documents.",
     },
-    "Deeper questions": {
+    MODE_BROAD: {
         "k": 12,
-        "multi_query": True,
-        "hint": "Slower. For questions spanning a few parts of a document.",
-    },
-    "Broad synthesis": {
-        "k": 30,
-        "multi_query": True,
-        "hint": "Slowest. For 'summarize everything about X' questions.",
+        "kind": KIND_SUMMARY,
+        "multi_query": False,
+        "hint": "Overviews built from pre-read summaries of each document.",
     },
 }
-DEFAULT_MODE = "Simple question answering"
+DEFAULT_MODE = MODE_QA
+
+CLASSIFY_PROMPT = (
+    "Classify the user's question into exactly one category.\n\n"
+    "SPECIFIC — asks for a particular fact, definition, or provision that "
+    "would be stated in one place.\n"
+    "BROAD — asks to summarize, list, or give an overview of a whole topic "
+    "across a document.\n\n"
+    "Reply with exactly one word: SPECIFIC or BROAD.\n\n"
+    "QUESTION: {query}"
+)
 
 # Kept small deliberately: each extra sub-query lengthens the decomposition
 # response *and* widens the merged context, so both LLM calls get slower.
@@ -63,13 +75,21 @@ SYSTEM_PROMPT = (
 )
 
 
-def retrieve(query: str, k: int = 4) -> list[dict]:
-    """Return the top-``k`` chunks for ``query`` as ``{id, text, source, distance}`` dicts."""
+def retrieve(query: str, k: int = 4, kind: str | None = KIND_CONTENT) -> list[dict]:
+    """Return the top-``k`` chunks for ``query`` as ``{id, text, source, distance}`` dicts.
+
+    ``kind`` selects which pool to search: verbatim excerpts (the default) for
+    specific questions, or pre-built digests for broad ones. Passing ``None``
+    searches both.
+    """
     collection = get_collection()
     count = collection.count()
     if count == 0:
         return []
-    results = collection.query(query_texts=[query], n_results=min(k, count))
+    where = {"kind": kind} if kind else None
+    results = collection.query(
+        query_texts=[query], n_results=min(k, count), where=where
+    )
     ids = results.get("ids", [[]])[0]
     documents = results.get("documents", [[]])[0]
     metadatas = results.get("metadatas", [[]])[0]
@@ -157,7 +177,26 @@ def multi_retrieve(query: str, k: int = 4, max_n: int = MAX_SUBQUERIES) -> tuple
     return chunks, subqueries
 
 
-def retrieve_for(query: str, k: int, multi_query: bool) -> tuple[list[dict], list[str]]:
+def classify_mode(query: str) -> str:
+    """Pick the answer mode for ``query`` with one small-model call.
+
+    Runs on CLASSIFIER_MODEL rather than the workhorse: a two-way choice is an
+    easy task, so this adds a fraction of a generation's latency. Any
+    unrecognised reply falls back to question answering, the cheaper mode.
+    """
+    messages = [{"role": "user", "content": CLASSIFY_PROMPT.format(query=query)}]
+    try:
+        raw = ollama_client.chat(
+            messages, stream=False, model=ollama_client.CLASSIFIER_MODEL
+        ) or ""
+    except Exception:  # noqa: BLE001 — routing is best-effort
+        return DEFAULT_MODE
+    return MODE_BROAD if "BROAD" in raw.strip().upper() else MODE_QA
+
+
+def retrieve_for(
+    query: str, k: int, multi_query: bool = False, kind: str | None = KIND_CONTENT
+) -> tuple[list[dict], list[str]]:
     """Retrieve using the configured strategy. Returns ``(chunks, subqueries)``.
 
     The single entry point both :func:`answer` and the retrieval eval go
@@ -165,7 +204,7 @@ def retrieve_for(query: str, k: int, multi_query: bool) -> tuple[list[dict], lis
     """
     if multi_query:
         return multi_retrieve(query, k=k)
-    return retrieve(query, k=k), []
+    return retrieve(query, k=k, kind=kind), []
 
 
 def build_messages(query: str, chunks: list[dict], history: list[dict]) -> list[dict]:
@@ -222,22 +261,34 @@ def _num_ctx_for(messages: list[dict]) -> int:
 def answer(
     query: str,
     history: list[dict] | None = None,
-    k: int = 4,
+    mode: str | None = None,
+    k: int | None = None,
     multi_query: bool = False,
 ):
     """Retrieve context and stream an answer.
 
-    With ``multi_query=True`` the question is first split into targeted
-    sub-queries (one extra LLM call) so broad questions retrieve more evenly
-    across topics; see :func:`multi_retrieve`. Narrow factual questions gain
-    nothing from this and just pay the extra call.
+    ``mode`` selects which pool to answer from; when omitted it is chosen
+    automatically by :func:`classify_mode`. ``k`` and ``multi_query`` override
+    the mode's defaults for experiments.
 
-    Returns ``(token_stream, chunks, meta)``. ``meta`` carries the generated
-    ``subqueries`` (empty unless multi-query retrieval ran) and how many older
-    conversation turns were ``dropped_turns`` to stay inside the context limit.
+    Returns ``(token_stream, chunks, meta)``. ``meta`` reports the ``mode``
+    actually used — the UI shows it, so an automatic misroute is visible rather
+    than an unexplained bad answer — plus any generated ``subqueries`` and how
+    many older conversation turns were ``dropped_turns`` to fit the context.
     """
     history = history or []
-    chunks, subqueries = retrieve_for(query, k=k, multi_query=multi_query)
+    mode = mode or classify_mode(query)
+    preset = MODES.get(mode, MODES[DEFAULT_MODE])
+    k = preset["k"] if k is None else k
+
+    chunks, subqueries = retrieve_for(
+        query, k=k, multi_query=multi_query, kind=preset["kind"]
+    )
+    # A broad question before digests are built would otherwise silently answer
+    # from nothing; fall back to excerpts rather than returning an empty context.
+    if not chunks and preset["kind"] == KIND_SUMMARY:
+        chunks, subqueries = retrieve_for(query, k=k, kind=KIND_CONTENT)
+        mode = f"{mode} (no summaries built; used excerpts)"
 
     # Retrieved context and the question itself are non-negotiable; whatever
     # budget is left over goes to conversation history, newest turns first.
@@ -249,6 +300,7 @@ def answer(
     num_ctx = _num_ctx_for(messages)
     stream = ollama_client.chat(messages, stream=True, num_ctx=num_ctx)
     meta = {
+        "mode": mode,
         "subqueries": subqueries,
         "dropped_turns": len(history) - len(kept_history),
     }

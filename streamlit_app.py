@@ -3,7 +3,7 @@
 import streamlit as st
 
 from llm import ollama_client
-from rag import embeddings, retriever
+from rag import embeddings, retriever, summaries
 
 st.set_page_config(page_title="Ethics Navigator", page_icon="🧭", layout="wide")
 
@@ -33,6 +33,8 @@ except Exception as exc:  # noqa: BLE001 — surface any startup failure to the 
 if "messages" not in st.session_state:
     st.session_state["messages"] = []
 
+summaries_ready = backend_ready and summaries.summaries_available()
+
 # --- Sidebar: document management + settings ---------------------------------
 with st.sidebar:
     st.header("Your documents")
@@ -61,33 +63,38 @@ with st.sidebar:
         st.rerun()
 
     st.divider()
-    st.subheader("Answer mode")
-    mode = st.radio(
-        "Answer mode",
-        options=list(retriever.MODES),
-        index=list(retriever.MODES).index(retriever.DEFAULT_MODE),
-        label_visibility="collapsed",
-        captions=[m["hint"] for m in retriever.MODES.values()],
+    st.caption(
+        "Each question is routed automatically: specific questions are answered "
+        "from quoted excerpts, broad ones from pre-read document summaries."
     )
-    preset = retriever.MODES[mode]
+    if not summaries_ready:
+        st.warning(
+            "No document summaries built yet, so broad questions fall back to "
+            "excerpts and will be patchy. Run `python -m rag.summaries`.",
+            icon="⚠️",
+        )
 
     with st.expander("Advanced"):
-        st.caption("Overrides the mode above.")
-        top_k = st.slider(
+        mode_choice = st.selectbox(
+            "Answer mode",
+            options=["Automatic", *retriever.MODES],
+            help="\n\n".join(
+                f"**{name}** — {preset['hint']}"
+                for name, preset in retriever.MODES.items()
+            ),
+        )
+        override_k = st.checkbox("Override sources per answer")
+        custom_k = st.slider(
             "Sources per answer",
             min_value=1,
             max_value=30,
-            value=preset["k"],
-            help="How many document excerpts are retrieved to answer from. "
-            "More covers broad questions better but is slower on CPU.",
+            value=4,
+            disabled=not override_k,
+            help="How many excerpts or summary passages are retrieved.",
         )
-        multi_query = st.toggle(
-            "Split question into several searches",
-            value=preset["multi_query"],
-            help="Rewrites your question as a few targeted searches before "
-            "answering, so broad questions cover more of the documents. Costs "
-            "one extra model call; narrow factual questions don't need it.",
-        )
+
+    mode = None if mode_choice == "Automatic" else mode_choice
+    top_k = custom_k if override_k else None
 
     if st.session_state["messages"]:
         if st.button("🧹 Clear conversation"):
@@ -116,9 +123,10 @@ if prompt := st.chat_input("Ask a question…", disabled=not backend_ready):
         history = st.session_state["messages"][:-1]
         with st.spinner("Searching your documents…"):
             token_stream, chunks, meta = retriever.answer(
-                prompt, history=history, k=top_k, multi_query=multi_query
+                prompt, history=history, mode=mode, k=top_k
             )
         response = st.write_stream(token_stream)
+        st.caption(f"Answered in **{meta['mode']}** mode.")
         if meta["dropped_turns"]:
             st.caption(
                 f"⚠️ Dropped the {meta['dropped_turns']} oldest conversation "

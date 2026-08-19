@@ -129,25 +129,37 @@ def chunk_text(
 
 UPSERT_BATCH_SIZE = 100
 
+# Chunks are tagged so the two question types can be retrieved separately:
+# verbatim excerpts answer specific questions, condensed digests answer broad
+# ones. Similarity search over raw excerpts cannot answer "summarize every
+# principle" at any practical k — measured at 0/3 gold passages up to k=50.
+KIND_CONTENT = "content"
+KIND_SUMMARY = "summary"
 
-def _add_document(collection, text: str, source: str) -> int:
-    """Chunk one document's text and upsert it in batches. Returns the chunk count.
+
+def upsert_chunks(collection, chunks: list[str], source: str, kind: str = KIND_CONTENT) -> int:
+    """Upsert ``chunks`` in batches, tagged with ``source`` and ``kind``.
 
     Large documents can produce thousands of chunks; embedding them in one call
     risks a client-side timeout on a CPU-only Ollama backend, so upserts are
     split into smaller batches (see Chroma's guidance: 50-250 per batch).
     """
-    chunks = chunk_text(text)
-    ids = [f"{source}:{i}" for i in range(len(chunks))]
+    prefix = source if kind == KIND_CONTENT else f"{source}:{kind}"
+    ids = [f"{prefix}:{i}" for i in range(len(chunks))]
     for start in range(0, len(chunks), UPSERT_BATCH_SIZE):
         end = start + UPSERT_BATCH_SIZE
         batch = chunks[start:end]
         collection.upsert(
             ids=ids[start:end],
             documents=batch,
-            metadatas=[{"source": source} for _ in batch],
+            metadatas=[{"source": source, "kind": kind} for _ in batch],
         )
     return len(chunks)
+
+
+def _add_document(collection, text: str, source: str) -> int:
+    """Chunk one document's text and upsert it. Returns the chunk count."""
+    return upsert_chunks(collection, chunk_text(text), source, KIND_CONTENT)
 
 
 def load_documents(directory: str = DOCUMENTS_DIR) -> list[tuple[str, str]]:
@@ -216,9 +228,15 @@ def ingest_uploads(uploaded_files) -> int:
     return total
 
 
-def _sources_in(collection) -> set[str]:
-    """Return the set of unique source filenames already in ``collection``."""
-    results = collection.get(include=["metadatas"])
+def _sources_in(collection, kind: str | None = KIND_CONTENT) -> set[str]:
+    """Return unique source filenames in ``collection``, optionally by kind.
+
+    Defaults to content chunks: a document whose summary exists but whose text
+    does not has not really been ingested, and must not be skipped by
+    :func:`ingest`.
+    """
+    where = {"kind": kind} if kind else None
+    results = collection.get(include=["metadatas"], where=where)
     return {(m or {}).get("source", "unknown") for m in results["metadatas"]}
 
 
