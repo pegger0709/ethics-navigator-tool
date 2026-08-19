@@ -16,8 +16,9 @@ This is deliberately a separate command rather than part of startup ingestion:
 it costs tens of minutes of CPU inference, and a colleague's first launch must
 not hang on it.
 
-    python -m rag.summaries              # build for documents lacking digests
-    python -m rag.summaries --rebuild    # discard existing digests and redo
+    python -m rag.summaries                        # every document lacking a digest
+    python -m rag.summaries --source EU_GDPR.pdf   # just one (long ones take hours)
+    python -m rag.summaries --rebuild              # discard existing digests and redo
 """
 
 import argparse
@@ -126,20 +127,35 @@ def summarise_document(collection, source: str) -> int:
     return len(lines)
 
 
-def build_summaries(rebuild: bool = False) -> int:
-    """Build digests for every indexed document. Returns total statements."""
+def build_summaries(rebuild: bool = False, only: tuple[str, ...] | None = None) -> int:
+    """Build digests for indexed documents. Returns total statements.
+
+    ``only`` restricts the run to specific source filenames. Cost scales with
+    document length — a long statute can take hours on CPU — so building the
+    corpus one document at a time is often the practical path.
+    """
     collection = get_collection()
     content_sources = _sources_in(collection, KIND_CONTENT)
     existing = _sources_in(collection, KIND_SUMMARY)
 
+    if only:
+        unknown = set(only) - content_sources
+        if unknown:
+            print(f"not indexed, skipping: {sorted(unknown)}")
+        content_sources = content_sources & set(only)
+
     if rebuild and existing:
-        print(f"discarding existing digests for {len(existing)} document(s)")
-        collection.delete(where={"kind": KIND_SUMMARY})
-        existing = set()
+        targets = (existing & content_sources) if only else existing
+        if targets:
+            print(f"discarding existing digests for {len(targets)} document(s)")
+            collection.delete(
+                where={"$and": [{"kind": KIND_SUMMARY}, {"source": {"$in": sorted(targets)}}]}
+            )
+            existing = existing - targets
 
     pending = sorted(content_sources - existing)
     if not pending:
-        print("all documents already have digests; use --rebuild to redo them")
+        print("nothing to build; use --rebuild to redo existing digests")
         return 0
 
     print(f"building digests for {len(pending)} document(s) with "
@@ -158,10 +174,15 @@ def summaries_available() -> bool:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--rebuild", action="store_true", help="discard existing digests first")
+    parser.add_argument(
+        "--source",
+        action="append",
+        help="only build this document (repeatable); defaults to all pending",
+    )
     args = parser.parse_args()
 
     started = time.time()
-    total = build_summaries(rebuild=args.rebuild)
+    total = build_summaries(rebuild=args.rebuild, only=tuple(args.source) if args.source else None)
     print(f"\n{total} statements in {time.time() - started:.0f}s")
 
 

@@ -4,6 +4,7 @@ import os
 import re
 
 from llm import ollama_client
+from rag.corpus import active_jurisdictions, display_name
 from rag.embeddings import KIND_CONTENT, KIND_SUMMARY, get_collection
 
 DEFAULT_NUM_CTX = 2048  # Ollama's own default, used as a floor
@@ -75,20 +76,39 @@ SYSTEM_PROMPT = (
 )
 
 
-def retrieve(query: str, k: int = 4, kind: str | None = KIND_CONTENT) -> list[dict]:
+def _build_where(kind: str | None, jurisdictions: list[str] | None) -> dict | None:
+    """Assemble a Chroma metadata filter from the active kind and jurisdictions."""
+    clauses: list[dict] = []
+    if kind:
+        clauses.append({"kind": kind})
+    if jurisdictions is not None:
+        clauses.append({"jurisdiction": {"$in": list(jurisdictions)}})
+    if not clauses:
+        return None
+    return clauses[0] if len(clauses) == 1 else {"$and": clauses}
+
+
+def retrieve(
+    query: str,
+    k: int = 4,
+    kind: str | None = KIND_CONTENT,
+    jurisdictions: list[str] | None = None,
+) -> list[dict]:
     """Return the top-``k`` chunks for ``query`` as ``{id, text, source, distance}`` dicts.
 
     ``kind`` selects which pool to search: verbatim excerpts (the default) for
     specific questions, or pre-built digests for broad ones. Passing ``None``
-    searches both.
+    searches both. ``jurisdictions`` limits results to documents that apply
+    where the user operates; ``None`` means no jurisdiction filter.
     """
     collection = get_collection()
     count = collection.count()
     if count == 0:
         return []
-    where = {"kind": kind} if kind else None
     results = collection.query(
-        query_texts=[query], n_results=min(k, count), where=where
+        query_texts=[query],
+        n_results=min(k, count),
+        where=_build_where(kind, jurisdictions),
     )
     ids = results.get("ids", [[]])[0]
     documents = results.get("documents", [[]])[0]
@@ -195,7 +215,11 @@ def classify_mode(query: str) -> str:
 
 
 def retrieve_for(
-    query: str, k: int, multi_query: bool = False, kind: str | None = KIND_CONTENT
+    query: str,
+    k: int,
+    multi_query: bool = False,
+    kind: str | None = KIND_CONTENT,
+    jurisdictions: list[str] | None = None,
 ) -> tuple[list[dict], list[str]]:
     """Retrieve using the configured strategy. Returns ``(chunks, subqueries)``.
 
@@ -204,14 +228,16 @@ def retrieve_for(
     """
     if multi_query:
         return multi_retrieve(query, k=k)
-    return retrieve(query, k=k, kind=kind), []
+    return retrieve(query, k=k, kind=kind, jurisdictions=jurisdictions), []
 
 
 def build_messages(query: str, chunks: list[dict], history: list[dict]) -> list[dict]:
     """Assemble the message list: system prompt + context, prior turns, query."""
     if chunks:
+        # Cite documents by title: the model quotes whatever label it is given,
+        # and "UNESCO_397812eng.pdf" is meaningless to a reader.
         context = "\n\n".join(
-            f"[Source: {c['source']}]\n{c['text']}" for c in chunks
+            f"[Source: {display_name(c['source'])}]\n{c['text']}" for c in chunks
         )
     else:
         context = "(no relevant context found)"
@@ -264,12 +290,15 @@ def answer(
     mode: str | None = None,
     k: int | None = None,
     multi_query: bool = False,
+    jurisdictions: list[str] | None = None,
 ):
     """Retrieve context and stream an answer.
 
     ``mode`` selects which pool to answer from; when omitted it is chosen
-    automatically by :func:`classify_mode`. ``k`` and ``multi_query`` override
-    the mode's defaults for experiments.
+    automatically by :func:`classify_mode`. ``jurisdictions`` are the
+    place-specific regimes the user operates under; global instruments are
+    always included alongside them. ``k`` and ``multi_query`` override the
+    mode's defaults for experiments.
 
     Returns ``(token_stream, chunks, meta)``. ``meta`` reports the ``mode``
     actually used — the UI shows it, so an automatic misroute is visible rather
@@ -280,14 +309,21 @@ def answer(
     mode = mode or classify_mode(query)
     preset = MODES.get(mode, MODES[DEFAULT_MODE])
     k = preset["k"] if k is None else k
+    allowed = active_jurisdictions(jurisdictions)
 
     chunks, subqueries = retrieve_for(
-        query, k=k, multi_query=multi_query, kind=preset["kind"]
+        query,
+        k=k,
+        multi_query=multi_query,
+        kind=preset["kind"],
+        jurisdictions=allowed,
     )
     # A broad question before digests are built would otherwise silently answer
     # from nothing; fall back to excerpts rather than returning an empty context.
     if not chunks and preset["kind"] == KIND_SUMMARY:
-        chunks, subqueries = retrieve_for(query, k=k, kind=KIND_CONTENT)
+        chunks, subqueries = retrieve_for(
+            query, k=k, kind=KIND_CONTENT, jurisdictions=allowed
+        )
         mode = f"{mode} (no summaries built; used excerpts)"
 
     # Retrieved context and the question itself are non-negotiable; whatever

@@ -3,7 +3,7 @@
 import streamlit as st
 
 from llm import ollama_client
-from rag import embeddings, retriever, summaries
+from rag import corpus, embeddings, retriever, summaries
 
 st.set_page_config(page_title="Ethics Navigator", page_icon="🧭", layout="wide")
 
@@ -40,11 +40,28 @@ with st.sidebar:
     st.header("Your documents")
     st.caption("Everything stays on this machine — nothing is sent to the cloud.")
 
+    jurisdictions = st.multiselect(
+        "Where do you operate?",
+        options=corpus.SELECTABLE_JURISDICTIONS,
+        help="Global instruments (UN, UNESCO, OECD) always apply. Selecting a "
+        "jurisdiction adds the legislation that binds you there.",
+    )
+
     sources = embeddings.list_sources()
     if sources:
         st.subheader("In knowledge base")
-        for source in sources:
-            st.markdown(f"- {source}")
+        active = set(corpus.active_jurisdictions(jurisdictions))
+        grouped = corpus.group_by_jurisdiction(sources)
+        # Global first, then the selected jurisdictions, then anything inactive.
+        order = [corpus.GLOBAL, *corpus.SELECTABLE_JURISDICTIONS]
+        for group in [*order, *(g for g in grouped if g not in order)]:
+            if group not in grouped:
+                continue
+            in_use = group in active
+            st.caption(group if in_use else f"{group} — not selected")
+            for source in grouped[group]:
+                name = corpus.display_name(source)
+                st.markdown(f"- {name}" if in_use else f"- :gray[{name}]")
     else:
         st.info("No documents indexed yet.")
 
@@ -136,7 +153,11 @@ if prompt := st.chat_input("Ask a question…", disabled=not backend_ready):
         history = st.session_state["messages"][:-1]
         with st.spinner("Searching your documents…"):
             token_stream, chunks, meta = retriever.answer(
-                prompt, history=history, mode=mode, k=top_k
+                prompt,
+                history=history,
+                mode=mode,
+                k=top_k,
+                jurisdictions=jurisdictions,
             )
         response = st.write_stream(token_stream)
         st.caption(f"Answered in **{meta['mode']}** mode.")
@@ -152,7 +173,7 @@ if prompt := st.chat_input("Ask a question…", disabled=not backend_ready):
         if chunks:
             with st.expander(f"Sources ({len(chunks)})"):
                 for chunk in chunks:
-                    st.markdown(f"**{chunk['source']}**")
+                    st.markdown(f"**{corpus.display_name(chunk['source'])}**")
                     st.caption(chunk["text"][:500] + ("…" if len(chunk["text"]) > 500 else ""))
         render_copy_button(response)
 

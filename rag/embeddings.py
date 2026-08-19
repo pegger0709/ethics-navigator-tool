@@ -16,6 +16,7 @@ from dotenv import load_dotenv
 from pypdf import PdfReader
 
 from llm.ollama_client import EMBED_MODEL, OLLAMA_HOST
+from rag.corpus import jurisdiction_of
 
 load_dotenv()
 
@@ -146,13 +147,18 @@ def upsert_chunks(collection, chunks: list[str], source: str, kind: str = KIND_C
     """
     prefix = source if kind == KIND_CONTENT else f"{source}:{kind}"
     ids = [f"{prefix}:{i}" for i in range(len(chunks))]
+    metadata = {
+        "source": source,
+        "kind": kind,
+        "jurisdiction": jurisdiction_of(source),
+    }
     for start in range(0, len(chunks), UPSERT_BATCH_SIZE):
         end = start + UPSERT_BATCH_SIZE
         batch = chunks[start:end]
         collection.upsert(
             ids=ids[start:end],
             documents=batch,
-            metadatas=[{"source": source, "kind": kind} for _ in batch],
+            metadatas=[dict(metadata) for _ in batch],
         )
     return len(chunks)
 
