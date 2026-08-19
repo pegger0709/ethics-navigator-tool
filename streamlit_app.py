@@ -105,6 +105,17 @@ with st.sidebar:
             "no longer fits the model's context."
         )
 
+def render_copy_button(text: str) -> None:
+    """Offer ``text`` as a plain-text block so its hover icon copies it verbatim.
+
+    st.code's built-in copy button is used rather than a custom component:
+    it needs no JavaScript of our own and works inside Streamlit's sandboxed
+    iframe, where clipboard access from custom HTML is unreliable.
+    """
+    with st.expander("📋 Copy response"):
+        st.code(text, language=None, wrap_lines=True)
+
+
 # --- Main: chat --------------------------------------------------------------
 st.title("🧭 Ethics Navigator")
 st.caption("Ask questions about your documents. Answers are grounded in them.")
@@ -112,6 +123,8 @@ st.caption("Ask questions about your documents. Answers are grounded in them.")
 for message in st.session_state["messages"]:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
+        if message["role"] == "assistant":
+            render_copy_button(message["content"])
 
 if prompt := st.chat_input("Ask a question…", disabled=not backend_ready):
     st.session_state["messages"].append({"role": "user", "content": prompt})
@@ -141,5 +154,6 @@ if prompt := st.chat_input("Ask a question…", disabled=not backend_ready):
                 for chunk in chunks:
                     st.markdown(f"**{chunk['source']}**")
                     st.caption(chunk["text"][:500] + ("…" if len(chunk["text"]) > 500 else ""))
+        render_copy_button(response)
 
     st.session_state["messages"].append({"role": "assistant", "content": response})
