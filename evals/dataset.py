@@ -185,11 +185,18 @@ def cases_for(corpus: set[str], graders: tuple[str, ...] | None = None) -> list[
     that would invalidate it is. ``graders`` optionally restricts to specific
     grader types — pytest uses it to skip the judge, which needs a second model.
     """
+    # Compare by filename stem: a document may be held as PDF or as converted
+    # markdown, and which format it happens to be in must not change whether a
+    # case applies to it.
+    def stems(names) -> set[str]:
+        return {n.rsplit(".", 1)[0] for n in names}
+
+    available = stems(corpus)
     selected = []
     for case in CASES:
-        if not set(case.needs_docs) <= corpus:
+        if not stems(case.needs_docs) <= available:
             continue
-        if set(case.absent_docs) & corpus:
+        if stems(case.absent_docs) & available:
             continue
         if graders and case.grader not in graders:
             continue

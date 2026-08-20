@@ -22,14 +22,17 @@ not hang on it.
 """
 
 import argparse
+import os
 import time
 
 from llm import ollama_client
 from rag.embeddings import (
+    DIGESTS_DIR,
     KIND_CONTENT,
     KIND_SUMMARY,
     _sources_in,
     get_collection,
+    pack_statements,
     upsert_chunks,
 )
 
@@ -108,19 +111,15 @@ def summarise_document(collection, source: str) -> int:
     if not lines:
         return 0
 
-    # Pack the digest into retrievable chunks. Several statements per chunk
-    # keeps related principles together without recreating the dilution that
-    # made raw content chunks unsearchable.
-    digest_chunks: list[str] = []
-    current: list[str] = []
-    for line in lines:
-        current.append(line)
-        if sum(len(item) for item in current) > 700:
-            digest_chunks.append("\n".join(current))
-            current = []
-    if current:
-        digest_chunks.append("\n".join(current))
+    # Write the digest to disk as well as Chroma, so it is reviewable, survives
+    # the vector store being rebuilt, and can be committed and shipped.
+    os.makedirs(DIGESTS_DIR, exist_ok=True)
+    digest_path = os.path.join(DIGESTS_DIR, f"{os.path.splitext(source)[0]}.md")
+    with open(digest_path, "w", encoding="utf-8") as handle:
+        handle.write("\n".join(lines) + "\n")
+    print(f"  wrote {digest_path}", flush=True)
 
+    digest_chunks = pack_statements(lines)
     upsert_chunks(collection, digest_chunks, source, KIND_SUMMARY)
     print(f"  {source}: {len(lines)} statements -> {len(digest_chunks)} digest chunks",
           flush=True)

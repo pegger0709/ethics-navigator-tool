@@ -25,7 +25,7 @@ python -m rag.embeddings
 # Build per-document digests, which broad questions are answered from.
 # Expensive (tens of minutes to hours of CPU inference per document) and NOT run
 # at startup, so build one document at a time as capacity allows.
-python -m rag.summaries --source UNESCO_397812eng.pdf
+python -m rag.summaries --source UNESCO_397812eng.md
 
 # Evaluate: retrieval stage only (seconds, no LLM) — the fast loop for tuning k
 python -m evals.retrieval

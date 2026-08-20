@@ -19,37 +19,44 @@ CALIFORNIA = "California"
 # offered as a choice.
 SELECTABLE_JURISDICTIONS = (EU, CALIFORNIA)
 
-# source filename -> (display name, jurisdiction)
+# Keyed by filename *stem*, not full filename: the same document may be held as
+# a PDF or as converted markdown, and swapping formats must not change its
+# identity, title, or jurisdiction.
 DOCUMENTS: dict[str, tuple[str, str]] = {
-    "UN_declaration_HumanRights.pdf": (
+    "UN_declaration_HumanRights": (
         "Universal Declaration of Human Rights",
         GLOBAL,
     ),
-    "UNESCO_397812eng.pdf": (
+    "UNESCO_397812eng": (
         "UNESCO Recommendation on the Ethics of Neurotechnology",
         GLOBAL,
     ),
-    "OECD-LEGAL-0457-en.pdf": (
+    "OECD-LEGAL-0457-en": (
         "OECD Recommendation on Responsible Innovation in Neurotechnology",
         GLOBAL,
     ),
-    "GuidingPrinciplesBusinessHR_EN.pdf": (
+    "GuidingPrinciplesBusinessHR_EN": (
         "UN Guiding Principles on Business and Human Rights",
         GLOBAL,
     ),
-    "EU_GDPR.pdf": (
+    "EU_GDPR": (
         "EU General Data Protection Regulation (GDPR)",
         EU,
     ),
-    "EU_AIAct.pdf": (
+    "EU_AIAct": (
         "EU Artificial Intelligence Act",
         EU,
     ),
-    "ccpa_statute.pdf": (
+    "ccpa_statute": (
         "California Consumer Privacy Act (CCPA)",
         CALIFORNIA,
     ),
 }
+
+
+def stem(source: str) -> str:
+    """Filename without its extension — the key documents are known by."""
+    return source.rsplit(".", 1)[0]
 
 
 def display_name(source: str) -> str:
@@ -58,17 +65,15 @@ def display_name(source: str) -> str:
     Documents a user uploads themselves are not in the registry, so fall back
     to a tidied filename rather than hiding them.
     """
-    if source in DOCUMENTS:
-        return DOCUMENTS[source][0]
-    stem = source.rsplit(".", 1)[0]
-    return stem.replace("_", " ").replace("-", " ").strip()
+    key = stem(source)
+    if key in DOCUMENTS:
+        return DOCUMENTS[key][0]
+    return key.replace("_", " ").replace("-", " ").strip()
 
 
 def jurisdiction_of(source: str) -> str:
     """Jurisdiction for ``source``; uploads default to global."""
-    if source in DOCUMENTS:
-        return DOCUMENTS[source][1]
-    return GLOBAL
+    return DOCUMENTS.get(stem(source), (None, GLOBAL))[1]
 
 
 def active_jurisdictions(selected: list[str] | tuple[str, ...] | None) -> list[str]:

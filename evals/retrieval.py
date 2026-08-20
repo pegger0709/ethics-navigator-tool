@@ -29,12 +29,15 @@ from rag.embeddings import list_sources
 
 
 def normalise(text: str) -> str:
-    """Lowercase and collapse whitespace.
+    """Lowercase, strip markdown syntax, and collapse whitespace.
 
-    PDF extraction leaves irregular spacing ("evidence -based", double spaces
-    mid-sentence), so raw substring matching against the source text is
-    unreliable without this.
+    Gold chunks describe content, not formatting. PDF extraction leaves
+    irregular spacing ("evidence -based"), and converted markdown adds emphasis
+    and heading markers ("**Cognitive liberty**"), so both have to be removed
+    for substring matching to mean anything.
     """
+    text = re.sub(r"[*_`#>|]", "", text)
+    text = text.replace("\\", "")
     return re.sub(r"\s+", " ", text).strip().lower()
 
 
@@ -59,8 +62,16 @@ def evaluate(k: int, multi_query: bool, label: str) -> dict:
         if not case.gold_chunks:
             continue
 
+        # Evaluate each case in the mode it would actually run in: broad
+        # questions are answered from digests, not excerpts, so testing them
+        # against excerpts measures a path production never takes.
+        preset = retriever.MODES.get(
+            case.expected_mode, retriever.MODES[retriever.DEFAULT_MODE]
+        )
         started = time.time()
-        chunks, subqueries = retriever.retrieve_for(case.question, k=k, multi_query=multi_query)
+        chunks, subqueries = retriever.retrieve_for(
+            case.question, k=k, multi_query=multi_query, kind=preset["kind"]
+        )
         elapsed = time.time() - started
         elapsed_total += elapsed
 
