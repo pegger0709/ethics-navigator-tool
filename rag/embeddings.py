@@ -5,6 +5,7 @@ collection, so both ingestion and query-time embedding share one code path and
 go through the local Ollama service.
 """
 
+import hashlib
 import io
 import os
 import re
@@ -143,7 +144,13 @@ KIND_CONTENT = "content"
 KIND_SUMMARY = "summary"
 
 
-def upsert_chunks(collection, chunks: list[str], source: str, kind: str = KIND_CONTENT) -> int:
+def upsert_chunks(
+    collection,
+    chunks: list[str],
+    source: str,
+    kind: str = KIND_CONTENT,
+    extra_metadata: dict | None = None,
+) -> int:
     """Upsert ``chunks`` in batches, tagged with ``source`` and ``kind``.
 
     Large documents can produce thousands of chunks; embedding them in one call
@@ -156,6 +163,7 @@ def upsert_chunks(collection, chunks: list[str], source: str, kind: str = KIND_C
         "source": source,
         "kind": kind,
         "jurisdiction": jurisdiction_of(source),
+        **(extra_metadata or {}),
     }
     for start in range(0, len(chunks), UPSERT_BATCH_SIZE):
         end = start + UPSERT_BATCH_SIZE
@@ -286,20 +294,46 @@ def ingest(directory: str = DOCUMENTS_DIR) -> int:
     return total
 
 
+def _digest_hash(statements: list[str]) -> str:
+    """Fingerprint of a digest's content, used to detect an edited file."""
+    return hashlib.md5("\n".join(statements).encode("utf-8")).hexdigest()
+
+
+def _indexed_digest_hashes(collection) -> dict[str, str]:
+    """Map source -> stored content hash, for every currently indexed digest."""
+    results = collection.get(where={"kind": KIND_SUMMARY}, include=["metadatas"])
+    hashes: dict[str, str] = {}
+    for meta in results["metadatas"]:
+        hashes.setdefault((meta or {}).get("source"), (meta or {}).get("digest_hash"))
+    return hashes
+
+
 def _sync_digests(collection, on_disk_sources: set[str]) -> int:
-    """Index any digest file whose statements are not already stored.
+    """Index every digest file that is new or has changed since last indexed.
 
     Because digests are files rather than only rows in Chroma, wiping the
-    vector store no longer destroys them: the next ingest restores them.
+    vector store no longer destroys them: the next ingest restores them. A
+    content hash (not just presence) decides whether to (re)index, so editing
+    a digest file — e.g. regenerating it for better quality — takes effect on
+    the next ingest instead of being silently skipped because *a* digest for
+    that source already existed.
     """
     digests = load_digests()
-    indexed = _sources_in(collection, KIND_SUMMARY)
+    indexed_hashes = _indexed_digest_hashes(collection)
     total = 0
     for source, statements in digests.items():
-        if source not in on_disk_sources or source in indexed:
+        if source not in on_disk_sources:
             continue
+        new_hash = _digest_hash(statements)
+        if indexed_hashes.get(source) == new_hash:
+            continue
+        if source in indexed_hashes:
+            collection.delete(where={"$and": [{"kind": KIND_SUMMARY}, {"source": source}]})
+            print(f"digest for {source} changed; replacing indexed version")
         chunks = pack_statements(statements)
-        total += upsert_chunks(collection, chunks, source, KIND_SUMMARY)
+        total += upsert_chunks(
+            collection, chunks, source, KIND_SUMMARY, extra_metadata={"digest_hash": new_hash}
+        )
         print(f"loaded digest for {source}: {len(statements)} statements "
               f"-> {len(chunks)} chunks")
     return total
