@@ -5,6 +5,7 @@ a regression test and an eval score should never disagree about what "correct"
 means for the same case.
 """
 
+from evals.textnorm import normalize
 from llm import ollama_client
 
 REFUSAL_PHRASES = (
@@ -13,6 +14,9 @@ REFUSAL_PHRASES = (
     "doesn't contain",
     "does not contain",
     "no information",
+    "don't have that information",
+    "don't have any information",
+    "don't have information",
     "not mentioned",
     "doesn't mention",
     "does not mention",
@@ -39,8 +43,8 @@ JUDGE_PROMPT = (
 
 def grade_refusal(response: str) -> bool:
     """True when the response declines to answer."""
-    lowered = response.lower()
-    return any(phrase in lowered for phrase in REFUSAL_PHRASES)
+    normalized = normalize(response)
+    return any(phrase in normalized for phrase in REFUSAL_PHRASES)
 
 
 def grade_contains(
@@ -49,13 +53,15 @@ def grade_contains(
     """Check every required group has at least one of its alternatives present.
 
     Returns ``(passed, missing_groups)`` so a failure says which expectation
-    was unmet rather than just that something was.
+    was unmet rather than just that something was. Both sides are normalized,
+    so a model writing "self‑determination" with a non-breaking hyphen still
+    matches a gold phrase written with a plain ASCII one.
     """
-    lowered = response.lower()
+    normalized = normalize(response)
     missing = [
         group
         for group in expect
-        if not any(alternative.lower() in lowered for alternative in group)
+        if not any(normalize(alternative) in normalized for alternative in group)
     ]
     return not missing, missing
 

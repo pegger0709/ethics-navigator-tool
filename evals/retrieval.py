@@ -20,31 +20,18 @@ magnitude cheaper than a full end-to-end run.
 """
 
 import argparse
-import re
 import time
 
 from evals.dataset import CASES
+from evals.textnorm import normalize
 from rag import retriever
 from rag.embeddings import list_sources
 
 
-def normalise(text: str) -> str:
-    """Lowercase, strip markdown syntax, and collapse whitespace.
-
-    Gold chunks describe content, not formatting. PDF extraction leaves
-    irregular spacing ("evidence -based"), and converted markdown adds emphasis
-    and heading markers ("**Cognitive liberty**"), so both have to be removed
-    for substring matching to mean anything.
-    """
-    text = re.sub(r"[*_`#>|]", "", text)
-    text = text.replace("\\", "")
-    return re.sub(r"\s+", " ", text).strip().lower()
-
-
 def gold_chunk_found(needle: str, chunks: list[dict]) -> bool:
     """True when any retrieved chunk contains ``needle``."""
-    target = normalise(needle)
-    return any(target in normalise(chunk["text"]) for chunk in chunks)
+    target = normalize(needle)
+    return any(target in normalize(chunk["text"]) for chunk in chunks)
 
 
 def evaluate(k: int, multi_query: bool, label: str) -> dict:
