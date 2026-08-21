@@ -81,13 +81,13 @@ States have adopted a range of approaches in this regard. Some are domestic meas
 
 3. In meeting their duty to protect, States should:
 
-(a) Enforce laws that are aimed at, or have the effect of, requiring business enterprises to respect human rights, and periodically to assess the adequacy of such laws and address any gaps;
+  (a) Enforce laws that are aimed at, or have the effect of, requiring business enterprises to respect human rights, and periodically to assess the adequacy of such laws and address any gaps;
 
-(b) Ensure that other laws and policies governing the creation and ongoing operation of business enterprises, such as corporate law, do not constrain but enable business respect for human rights;
+  (b) Ensure that other laws and policies governing the creation and ongoing operation of business enterprises, such as corporate law, do not constrain but enable business respect for human rights;
 
-(c) Provide effective guidance to business enterprises on how to respect human rights throughout their operations;
+  (c) Provide effective guidance to business enterprises on how to respect human rights throughout their operations;
 
-(d) Encourage, and where appropriate require, business enterprises to communicate how they address their human rights impacts.
+  (d) Encourage, and where appropriate require, business enterprises to communicate how they address their human rights impacts.
 
 *Commentary*
 
@@ -141,13 +141,13 @@ States conduct a variety of commercial transactions with business enterprises, n
 
 7. Because the risk of gross human rights abuses is heightened in conflict-affected areas, States should help ensure that business enterprises operating in those contexts are not involved with such abuses, including by:
 
-(a) Engaging at the earliest stage possible with business enterprises to help them identify, prevent and mitigate the human rights-related risks of their activities and business relationships;
+  (a) Engaging at the earliest stage possible with business enterprises to help them identify, prevent and mitigate the human rights-related risks of their activities and business relationships;
 
-(b) Providing adequate assistance to business enterprises to assess and address the heightened risks of abuses, paying special attention to both gender-based and sexual violence;
+  (b) Providing adequate assistance to business enterprises to assess and address the heightened risks of abuses, paying special attention to both gender-based and sexual violence;
 
-(c) Denying access to public support and services for a business enterprise that is involved with gross human rights abuses and refuses to cooperate in addressing the situation;
+  (c) Denying access to public support and services for a business enterprise that is involved with gross human rights abuses and refuses to cooperate in addressing the situation;
 
-(d) Ensuring that their current policies, legislation, regulations and enforcement measures are effective in addressing the risk of business involvement in gross human rights abuses.
+  (d) Ensuring that their current policies, legislation, regulations and enforcement measures are effective in addressing the risk of business involvement in gross human rights abuses.
 
 #### Commentary
 
@@ -245,11 +245,11 @@ The means through which a business enterprise meets its responsibility to respec
 
 15. In order to meet their responsibility to respect human rights, business enterprises should have in place policies and processes appropriate to their size and circumstances, including:
 
-(a) A policy commitment to meet their responsibility to respect human rights;
+  (a) A policy commitment to meet their responsibility to respect human rights;
 
-(b) A human rights due diligence process to identify, prevent, mitigate and account for how they address their impacts on human rights;
+  (b) A human rights due diligence process to identify, prevent, mitigate and account for how they address their impacts on human rights;
 
-(c) Processes to enable the remediation of any adverse human rights impacts they cause or to which they contribute.
+  (c) Processes to enable the remediation of any adverse human rights impacts they cause or to which they contribute.
 
 *Commentary*
 
@@ -261,15 +261,15 @@ Business enterprises need to know and show that they respect human rights. They 
 
 16. As the basis for embedding their responsibility to respect human rights, business enterprises should express their commitment to meet this responsibility through a statement of policy that:
 
-(a) Is approved at the most senior level of the business enterprise;
+  (a) Is approved at the most senior level of the business enterprise;
 
-(b) Is informed by relevant internal and/or external expertise;
+  (b) Is informed by relevant internal and/or external expertise;
 
-(c) Stipulates the enterprise's human rights expectations of personnel, business partners and other parties directly linked to its operations, products or services;
+  (c) Stipulates the enterprise's human rights expectations of personnel, business partners and other parties directly linked to its operations, products or services;
 
-(d) Is publicly available and communicated internally and externally to all personnel, business partners and other relevant parties;
+  (d) Is publicly available and communicated internally and externally to all personnel, business partners and other relevant parties;
 
-(e) Is reflected in operational policies and procedures necessary to embed it throughout the business enterprise.
+  (e) Is reflected in operational policies and procedures necessary to embed it throughout the business enterprise.
 
 *Commentary*
 
@@ -289,11 +289,11 @@ Through these and any other appropriate means, the policy statement should be em
 
 17. In order to identify, prevent, mitigate and account for how they address their adverse human rights impacts, business enterprises should carry out human rights due diligence. The process should include assessing actual and potential human rights impacts, integrating and acting upon the findings, tracking responses, and communicating how impacts are addressed. Human rights due diligence:
 
-(a) Should cover adverse human rights impacts that the business enterprise may cause or contribute to through its own activities, or which may be directly linked to its operations, products or services by its business relationships;
+  (a) Should cover adverse human rights impacts that the business enterprise may cause or contribute to through its own activities, or which may be directly linked to its operations, products or services by its business relationships;
 
-(b) Will vary in complexity with the size of the business enterprise, the risk of severe human rights impacts, and the nature and context of its operations;
+  (b) Will vary in complexity with the size of the business enterprise, the risk of severe human rights impacts, and the nature and context of its operations;
 
-(c) Should be ongoing, recognizing that the human rights risks may change over time as the business enterprise's operations and operating context evolve.
+  (c) Should be ongoing, recognizing that the human rights risks may change over time as the business enterprise's operations and operating context evolve.
 
 *Commentary*
 
@@ -315,9 +315,9 @@ Conducting appropriate human rights due diligence should help business enterpris
 
 18. In order to gauge human rights risks, business enterprises should identify and assess any actual or potential adverse human rights impacts with which they may be involved either through their own activities or as a result of their business relationships. This process should:
 
-(a) Draw on internal and/or independent external human rights expertise;
+  (a) Draw on internal and/or independent external human rights expertise;
 
-(b) Involve meaningful consultation with potentially affected groups and other relevant stakeholders, as appropriate to the size of the business enterprise and the nature and context of the operation.
+  (b) Involve meaningful consultation with potentially affected groups and other relevant stakeholders, as appropriate to the size of the business enterprise and the nature and context of the operation.
 
 *Commentary*
 
@@ -335,17 +335,17 @@ The assessment of human rights impacts informs subsequent steps in the human rig
 
 19. In order to prevent and mitigate adverse human rights impacts, business enterprises should integrate the findings from their impact assessments across relevant internal functions and processes, and take appropriate action.
 
-(a) Effective integration requires that:
+  (a) Effective integration requires that:
 
-(i) Responsibility for addressing such impacts is assigned to the appropriate level and function within the business enterprise;
+    (i) Responsibility for addressing such impacts is assigned to the appropriate level and function within the business enterprise;
 
-(ii) Internal decision-making, budget allocations and oversight processes enable effective responses to such impacts.
+    (ii) Internal decision-making, budget allocations and oversight processes enable effective responses to such impacts.
 
-(b) Appropriate action will vary according to:
+  (b) Appropriate action will vary according to:
 
-(i) Whether the business enterprise causes or contributes to an adverse impact, or whether it is involved solely because the impact is directly linked to its operations, products or services by a business relationship;
+    (i) Whether the business enterprise causes or contributes to an adverse impact, or whether it is involved solely because the impact is directly linked to its operations, products or services by a business relationship;
 
-(ii) The extent of its leverage in addressing the adverse impact.
+    (ii) The extent of its leverage in addressing the adverse impact.
 
 #### Commentary
 
@@ -369,9 +369,9 @@ Where the relationship is "crucial" to the enterprise, ending it raises further 
 
 20. In order to verify whether adverse human rights impacts are being addressed, business enterprises should track the effectiveness of their response. Tracking should:
 
-(a) Be based on appropriate qualitative and quantitative indicators;
+  (a) Be based on appropriate qualitative and quantitative indicators;
 
-(b) Draw on feedback from both internal and external sources, including affected stakeholders.
+  (b) Draw on feedback from both internal and external sources, including affected stakeholders.
 
 #### Commentary
 
@@ -383,11 +383,11 @@ Tracking should be integrated into relevant internal reporting processes. Busine
 
 21. In order to account for how they address their human rights impacts, business enterprises should be prepared to communicate this externally, particularly when concerns are raised by or on behalf of affected stakeholders. Business enterprises whose operations or operating contexts pose risks of severe human rights impacts should report formally on how they address them. In all instances, communications should:
 
-(a) Be of a form and frequency that reflect an enterprise's human rights impacts and that are accessible to its intended audiences;
+  (a) Be of a form and frequency that reflect an enterprise's human rights impacts and that are accessible to its intended audiences;
 
-(b) Provide information that is sufficient to evaluate the adequacy of an enterprise's response to the particular human rights impact involved;
+  (b) Provide information that is sufficient to evaluate the adequacy of an enterprise's response to the particular human rights impact involved;
 
-(c) In turn not pose risks to affected stakeholders, personnel or to legitimate requirements of commercial confidentiality.
+  (c) In turn not pose risks to affected stakeholders, personnel or to legitimate requirements of commercial confidentiality.
 
 #### Commentary
 
@@ -417,11 +417,11 @@ Further guidance on mechanisms through which remediation may be sought, includin
 
 23. In all contexts, business enterprises should:
 
-(a) Comply with all applicable laws and respect internationally recognized human rights, wherever they operate;
+  (a) Comply with all applicable laws and respect internationally recognized human rights, wherever they operate;
 
-(b) Seek ways to honour the principles of internationally recognized human rights when faced with conflicting requirements;
+  (b) Seek ways to honour the principles of internationally recognized human rights when faced with conflicting requirements;
 
-(c) Treat the risk of causing or contributing to gross human rights abuses as a legal compliance issue wherever they operate.
+  (c) Treat the risk of causing or contributing to gross human rights abuses as a legal compliance issue wherever they operate.
 
 #### Commentary
 
@@ -520,9 +520,9 @@ Operational-level grievance mechanisms are accessible directly to individuals an
 
 Operational-level grievance mechanisms perform two key functions regarding the responsibility of business enterprises to respect human rights.
 
-•	 First, they support the identification of adverse human rights impacts as a part of an enterprise's ongoing human rights due diligence. They do so by providing a channel for those directly impacted by the enterprise's operations to raise concerns when they believe they are being or will be adversely impacted. By analysing trends and patterns in complaints, business enterprises can also identify systemic problems and adapt their practices accordingly;
+- First, they support the identification of adverse human rights impacts as a part of an enterprise's ongoing human rights due diligence. They do so by providing a channel for those directly impacted by the enterprise's operations to raise concerns when they believe they are being or will be adversely impacted. By analysing trends and patterns in complaints, business enterprises can also identify systemic problems and adapt their practices accordingly;
 
-•	 Second, these mechanisms make it possible for grievances, once identified, to be addressed and for adverse impacts to be remediated early and directly by the business enterprise, thereby preventing harms from compounding and grievances from escalating.
+- Second, these mechanisms make it possible for grievances, once identified, to be addressed and for adverse impacts to be remediated early and directly by the business enterprise, thereby preventing harms from compounding and grievances from escalating.
 
 Such mechanisms need not require that a complaint or grievance amount to an alleged human rights abuse before it can be raised, but specifically aim to identify any legitimate concerns of those who may be adversely impacted. If those concerns are not identified and addressed, they may over time escalate into more major disputes and human rights abuses.
 
@@ -542,23 +542,23 @@ Such collaborative initiatives should ensure the availability of effective mecha
 
 31. In order to ensure their effectiveness, non-judicial grievance mechanisms, both State-based and non-State-based, should be:
 
-(a) Legitimate: enabling trust from the stakeholder groups for whose use they are intended, and being accountable for the fair conduct of grievance processes;
+  (a) Legitimate: enabling trust from the stakeholder groups for whose use they are intended, and being accountable for the fair conduct of grievance processes;
 
-(b) Accessible: being known to all stakeholder groups for whose use they are intended, and providing adequate assistance for those who may face particular barriers to access;
+  (b) Accessible: being known to all stakeholder groups for whose use they are intended, and providing adequate assistance for those who may face particular barriers to access;
 
-(c) Predictable: providing a clear and known procedure with an indicative time frame for each stage, and clarity on the types of process and outcome available and means of monitoring implementation;
+  (c) Predictable: providing a clear and known procedure with an indicative time frame for each stage, and clarity on the types of process and outcome available and means of monitoring implementation;
 
-(d) Equitable: seeking to ensure that aggrieved parties have reasonable access to sources of information, advice and expertise necessary to engage in a grievance process on fair, informed and respectful terms;
+  (d) Equitable: seeking to ensure that aggrieved parties have reasonable access to sources of information, advice and expertise necessary to engage in a grievance process on fair, informed and respectful terms;
 
-(e) Transparent: keeping parties to a grievance informed about its progress, and providing sufficient information about the mechanism's performance to build confidence in its effectiveness and meet any public interest at stake;
+  (e) Transparent: keeping parties to a grievance informed about its progress, and providing sufficient information about the mechanism's performance to build confidence in its effectiveness and meet any public interest at stake;
 
-(f) Rights-compatible: ensuring that outcomes and remedies accord with internationally recognized human rights;
+  (f) Rights-compatible: ensuring that outcomes and remedies accord with internationally recognized human rights;
 
-(g) A source of continuous learning: drawing on relevant measures to identify lessons for improving the mechanism and preventing future grievances and harms;
+  (g) A source of continuous learning: drawing on relevant measures to identify lessons for improving the mechanism and preventing future grievances and harms;
 
 Operational-level mechanisms should also be:
 
-(h) Based on engagement and dialogue: consulting the stakeholder groups for whose use they are intended on their design and performance, and focusing on dialogue as the means to address and resolve grievances.
+  (h) Based on engagement and dialogue: consulting the stakeholder groups for whose use they are intended on their design and performance, and focusing on dialogue as the means to address and resolve grievances.
 
 #### Commentary
 

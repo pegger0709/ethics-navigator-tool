@@ -64,9 +64,9 @@ Everyone is entitled in full equality to a fair and public hearing by an indepen
 
 ### Article 11
 
-1\. Everyone charged with a penal offence has the right to be presumed innocent until proved guilty according to law in a public trial at which he has had all the guarantees necessary for his defence.
+1. Everyone charged with a penal offence has the right to be presumed innocent until proved guilty according to law in a public trial at which he has had all the guarantees necessary for his defence.
 
-2\. No one shall be held guilty of any penal offence on account of any act or omission which did not constitute a penal offence, under national or international law, at the time when it was committed. Nor shall a heavier penalty be imposed than the one that was applicable at the time the penal offence was committed.
+2. No one shall be held guilty of any penal offence on account of any act or omission which did not constitute a penal offence, under national or international law, at the time when it was committed. Nor shall a heavier penalty be imposed than the one that was applicable at the time the penal offence was committed.
 
 ### Article 12
 
@@ -74,35 +74,35 @@ No one shall be subjected to arbitrary interference with his privacy, family, ho
 
 ### Article 13
 
-1\. Everyone has the right to freedom of movement and residence within the borders of each State.
+1. Everyone has the right to freedom of movement and residence within the borders of each State.
 
-2\. Everyone has the right to leave any country, including his own, and to return to his country.
+2. Everyone has the right to leave any country, including his own, and to return to his country.
 
 ### Article 14
 
-1\. Everyone has the right to seek and to enjoy in other countries asylum from persecution.
+1. Everyone has the right to seek and to enjoy in other countries asylum from persecution.
 
-2\. This right may not be invoked in the case of prosecutions genuinely arising from non-political crimes or from acts contrary to the purposes and principles of the United Nations.
+2. This right may not be invoked in the case of prosecutions genuinely arising from non-political crimes or from acts contrary to the purposes and principles of the United Nations.
 
 ### Article 15
 
-1\. Everyone has the right to a nationality.
+1. Everyone has the right to a nationality.
 
-2\. No one shall be arbitrarily deprived of his nationality nor denied the right to change his nationality.
+2. No one shall be arbitrarily deprived of his nationality nor denied the right to change his nationality.
 
 ### Article 16
 
-1\. Men and women of full age, without any limitation due to race, nationality or religion, have the right to marry and to found a family. They are entitled to equal rights as to marriage, during marriage and at its dissolution.
+1. Men and women of full age, without any limitation due to race, nationality or religion, have the right to marry and to found a family. They are entitled to equal rights as to marriage, during marriage and at its dissolution.
 
-2\. Marriage shall be entered into only with the free and full consent of the intending spouses.
+2. Marriage shall be entered into only with the free and full consent of the intending spouses.
 
-3\. The family is the natural and fundamental group unit of society and is entitled to protection by society and the State.
+3. The family is the natural and fundamental group unit of society and is entitled to protection by society and the State.
 
 ### Article 17
 
-1\. Everyone has the right to own property alone as well as in association with others.
+1. Everyone has the right to own property alone as well as in association with others.
 
-2\. No one shall be arbitrarily deprived of his property.
+2. No one shall be arbitrarily deprived of his property.
 
 ### Article 18
 
@@ -114,17 +114,17 @@ Everyone has the right to freedom of opinion and expression; this right includes
 
 ### Article 20
 
-1\. Everyone has the right to freedom of peaceful assembly and association.
+1. Everyone has the right to freedom of peaceful assembly and association.
 
-2\. No one may be compelled to belong to an association.
+2. No one may be compelled to belong to an association.
 
 ### Article 21
 
-1\. Everyone has the right to take part in the government of his country, directly or through freely chosen representatives.
+1. Everyone has the right to take part in the government of his country, directly or through freely chosen representatives.
 
-2\. Everyone has the right of equal access to public service in his country.
+2. Everyone has the right of equal access to public service in his country.
 
-3\. The will of the people shall be the basis of the authority of government; this will shall be expressed in periodic and genuine elections which shall be by universal and equal suffrage and shall be held by secret vote or by equivalent free voting procedures.
+3. The will of the people shall be the basis of the authority of government; this will shall be expressed in periodic and genuine elections which shall be by universal and equal suffrage and shall be held by secret vote or by equivalent free voting procedures.
 
 ### Article 22
 
@@ -132,13 +132,13 @@ Everyone, as a member of society, has the right to social security and is entitl
 
 ### Article 23
 
-1\. Everyone has the right to work, to free choice of employment, to just and favourable conditions of work and to protection against unemployment.
+1. Everyone has the right to work, to free choice of employment, to just and favourable conditions of work and to protection against unemployment.
 
-2\. Everyone, without any discrimination, has the right to equal pay for equal work.
+2. Everyone, without any discrimination, has the right to equal pay for equal work.
 
-3\. Everyone who works has the right to just and favourable remuneration ensuring for himself and his family an existence worthy of human dignity, and supplemented, if necessary, by other means of social protection.
+3. Everyone who works has the right to just and favourable remuneration ensuring for himself and his family an existence worthy of human dignity, and supplemented, if necessary, by other means of social protection.
 
-4\. Everyone has the right to form and to join trade unions for the protection of his interests.
+4. Everyone has the right to form and to join trade unions for the protection of his interests.
 
 ### Article 24
 
@@ -146,23 +146,23 @@ Everyone has the right to rest and leisure, including reasonable limitation of w
 
 ### Article 25
 
-1\. Everyone has the right to a standard of living adequate for the health and well-being of himself and of his family, including food, clothing, housing and medical care and necessary social services, and the right to security in the event of unemployment, sickness, disability, widowhood, old age or other lack of livelihood in circumstances beyond his control.
+1. Everyone has the right to a standard of living adequate for the health and well-being of himself and of his family, including food, clothing, housing and medical care and necessary social services, and the right to security in the event of unemployment, sickness, disability, widowhood, old age or other lack of livelihood in circumstances beyond his control.
 
-2\. Motherhood and childhood are entitled to special care and assistance. All children, whether born in or out of wedlock, shall enjoy the same social protection.
+2. Motherhood and childhood are entitled to special care and assistance. All children, whether born in or out of wedlock, shall enjoy the same social protection.
 
 ### Article 26
 
-1\. Everyone has the right to education. Education shall be free, at least in the elementary and fundamental stages. Elementary education shall be compulsory. Technical and professional education shall be made generally available and higher education shall be equally accessible to all on the basis of merit.
+1. Everyone has the right to education. Education shall be free, at least in the elementary and fundamental stages. Elementary education shall be compulsory. Technical and professional education shall be made generally available and higher education shall be equally accessible to all on the basis of merit.
 
-2\. Education shall be directed to the full development of the human personality and to the strengthening of respect for human rights and fundamental freedoms. It shall promote understanding, tolerance and friendship among all nations, racial or religious groups, and shall further the activities of the United Nations for the maintenance of peace.
+2. Education shall be directed to the full development of the human personality and to the strengthening of respect for human rights and fundamental freedoms. It shall promote understanding, tolerance and friendship among all nations, racial or religious groups, and shall further the activities of the United Nations for the maintenance of peace.
 
-3\. Parents have a prior right to choose the kind of education that shall be given to their children.
+3. Parents have a prior right to choose the kind of education that shall be given to their children.
 
 ### Article 27
 
-1\. Everyone has the right freely to participate in the cultural life of the community, to enjoy the arts and to share in scientific advancement and its benefits.
+1. Everyone has the right freely to participate in the cultural life of the community, to enjoy the arts and to share in scientific advancement and its benefits.
 
-2\. Everyone has the right to the protection of the moral and material interests resulting from any scientific, literary or artistic production of which he is the author.
+2. Everyone has the right to the protection of the moral and material interests resulting from any scientific, literary or artistic production of which he is the author.
 
 ### Article 28
 
@@ -170,11 +170,11 @@ Everyone is entitled to a social and international order in which the rights and
 
 ### Article 29
 
-1\. Everyone has duties to the community in which alone the free and full development of his personality is possible.
+1. Everyone has duties to the community in which alone the free and full development of his personality is possible.
 
-2\. In the exercise of his rights and freedoms, everyone shall be subject only to such limitations as are determined by law solely for the purpose of securing due recognition and respect for the rights and freedoms of others and of meeting the just requirements of morality, public order and the general welfare in a democratic society.
+2. In the exercise of his rights and freedoms, everyone shall be subject only to such limitations as are determined by law solely for the purpose of securing due recognition and respect for the rights and freedoms of others and of meeting the just requirements of morality, public order and the general welfare in a democratic society.
 
-3\. These rights and freedoms may in no case be exercised contrary to the purposes and principles of the United Nations.
+3. These rights and freedoms may in no case be exercised contrary to the purposes and principles of the United Nations.
 
 ### Article 30
 
