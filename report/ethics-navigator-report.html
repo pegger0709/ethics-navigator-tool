@@ -1,0 +1,1152 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.37">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Philip Egger">
+<meta name="dcterms.date" content="2026-08-24">
+
+<title>Ethics Navigator: A Local-First Retrieval System for Neuroethics Guidance</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+/* CSS for citations */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+}
+.hanging-indent div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}</style>
+
+
+<script src="ethics-navigator-report_files/libs/clipboard/clipboard.min.js"></script>
+<script src="ethics-navigator-report_files/libs/quarto-html/quarto.js" type="module"></script>
+<script src="ethics-navigator-report_files/libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="ethics-navigator-report_files/libs/quarto-html/popper.min.js"></script>
+<script src="ethics-navigator-report_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="ethics-navigator-report_files/libs/quarto-html/anchor.min.js"></script>
+<link href="ethics-navigator-report_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="ethics-navigator-report_files/libs/quarto-html/quarto-syntax-highlighting-7f8f88aac4f3542376d5c11b86a4c14d.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="ethics-navigator-report_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="ethics-navigator-report_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="ethics-navigator-report_files/libs/bootstrap/bootstrap-67270d1595a62d14f123c043d4fb2f18.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script src="ethics-navigator-report_files/libs/quarto-diagram/mermaid.min.js"></script>
+<script src="ethics-navigator-report_files/libs/quarto-diagram/mermaid-init.js"></script>
+<link href="ethics-navigator-report_files/libs/quarto-diagram/mermaid.css" rel="stylesheet">
+
+
+</head>
+
+<body class="quarto-light">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+<div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+  <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">Table of contents</h2>
+   
+  <ul>
+  <li><a href="#executive-summary" id="toc-executive-summary" class="nav-link active" data-scroll-target="#executive-summary">Executive Summary</a></li>
+  <li><a href="#introduction" id="toc-introduction" class="nav-link" data-scroll-target="#introduction">Introduction</a>
+  <ul class="collapse">
+  <li><a href="#problem-statement" id="toc-problem-statement" class="nav-link" data-scroll-target="#problem-statement">Problem Statement</a></li>
+  <li><a href="#motivation" id="toc-motivation" class="nav-link" data-scroll-target="#motivation">Motivation</a></li>
+  <li><a href="#scope-and-objectives" id="toc-scope-and-objectives" class="nav-link" data-scroll-target="#scope-and-objectives">Scope and Objectives</a></li>
+  </ul></li>
+  <li><a href="#system-architecture" id="toc-system-architecture" class="nav-link" data-scroll-target="#system-architecture">System Architecture</a>
+  <ul class="collapse">
+  <li><a href="#high-level-design" id="toc-high-level-design" class="nav-link" data-scroll-target="#high-level-design">High-Level Design</a></li>
+  <li><a href="#component-descriptions" id="toc-component-descriptions" class="nav-link" data-scroll-target="#component-descriptions">Component Descriptions</a>
+  <ul class="collapse">
+  <li><a href="#tokenization-and-context-budgeting" id="toc-tokenization-and-context-budgeting" class="nav-link" data-scroll-target="#tokenization-and-context-budgeting">Tokenization and context budgeting</a></li>
+  <li><a href="#language-models" id="toc-language-models" class="nav-link" data-scroll-target="#language-models">Language models</a></li>
+  <li><a href="#retrieval" id="toc-retrieval" class="nav-link" data-scroll-target="#retrieval">Retrieval</a></li>
+  <li><a href="#digests" id="toc-digests" class="nav-link" data-scroll-target="#digests">Digests</a></li>
+  <li><a href="#guardrails" id="toc-guardrails" class="nav-link" data-scroll-target="#guardrails">Guardrails</a></li>
+  <li><a href="#local-storage-and-privacy" id="toc-local-storage-and-privacy" class="nav-link" data-scroll-target="#local-storage-and-privacy">Local storage and privacy</a></li>
+  <li><a href="#containerization" id="toc-containerization" class="nav-link" data-scroll-target="#containerization">Containerization</a></li>
+  <li><a href="#frontend" id="toc-frontend" class="nav-link" data-scroll-target="#frontend">Frontend</a></li>
+  </ul></li>
+  </ul></li>
+  <li><a href="#sec-evaluation" id="toc-sec-evaluation" class="nav-link" data-scroll-target="#sec-evaluation">Evaluation</a>
+  <ul class="collapse">
+  <li><a href="#yardstick" id="toc-yardstick" class="nav-link" data-scroll-target="#yardstick">Yardstick</a></li>
+  <li><a href="#results-by-mode" id="toc-results-by-mode" class="nav-link" data-scroll-target="#results-by-mode">Results by Mode</a></li>
+  <li><a href="#sec-failures" id="toc-sec-failures" class="nav-link" data-scroll-target="#sec-failures">Common Failure Modes</a></li>
+  <li><a href="#sec-tradeoffs" id="toc-sec-tradeoffs" class="nav-link" data-scroll-target="#sec-tradeoffs">Trade-offs</a></li>
+  </ul></li>
+  <li><a href="#appendix-corpus" id="toc-appendix-corpus" class="nav-link" data-scroll-target="#appendix-corpus">Appendix: Corpus</a></li>
+  <li><a href="#references" id="toc-references" class="nav-link" data-scroll-target="#references">References</a></li>
+  </ul>
+<div class="quarto-alternate-formats"><h2>Other Formats</h2><ul><li><a href="ethics-navigator-report.pdf"><i class="bi bi-file-pdf"></i>PDF</a></li></ul></div></nav>
+</div>
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Ethics Navigator: A Local-First Retrieval System for Neuroethics Guidance</h1>
+<p class="subtitle lead">Design, architecture, and evaluation of the conversational successor to the rules-based Navigation Tool</p>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    <div>
+    <div class="quarto-title-meta-heading">Author</div>
+    <div class="quarto-title-meta-contents">
+             <p>Philip Egger </p>
+          </div>
+  </div>
+    
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">August 24, 2026</p>
+    </div>
+  </div>
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="executive-summary" class="level1">
+<h1>Executive Summary</h1>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>Draft status
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>Written last, as an abstract of the sections that follow. Figures for corpus composition and the model trade-off are generated from live project data; the evaluation numbers are from the measured runs described in <a href="#sec-evaluation" class="quarto-xref">Section&nbsp;4</a>.</p>
+</div>
+</div>
+<p>The Ethics Navigator is a locally-hosted question-answering system that lets a neurotechnology company interrogate the ethical and legal instruments that govern its work — UNESCO’s neurotechnology recommendation, the OECD’s responsible-innovation principles, the UN Guiding Principles on Business and Human Rights, the Universal Declaration of Human Rights, and the jurisdiction-specific regimes of the EU and California.</p>
+<p>It is the successor to a rules-based Navigation Tool piloted at the Asilomar workshop in March 2026 <span class="citation" data-cites="asilomar2026workshop">(<a href="#ref-asilomar2026workshop" role="doc-biblioref">IDUN Technologies and Ningen Neuroethics Co-Lab 2026</a>)</span>. That earlier tool asked a fixed questionnaire and returned red flags. Workshop participants rejected it for rigidity: the questions felt “too academic, obvious, or leading”, the scope was “too narrowly focused on partnerships”, and it “doesn’t feel like it fits into a real workflow”. The most frequently requested replacement was, in participants’ own words, an “interactive ‘chatbot’ type portal” and an “AI-Agent as process facilitator”. This system is that pivot: from a fixed decision tree to a grounded conversation over primary sources.</p>
+<p>The system runs entirely on the user’s own machine. Documents, questions, and answers never leave it — a requirement, not a preference, given that the questions a company asks an ethics tool are themselves commercially and legally sensitive.</p>
+<p><strong>Headline results.</strong> Against a seven-case gold dataset, the system answers 6 of 7 correctly. On the hardest case — an open request to summarise every principle governing responsible neurotechnology development — an independent judge model scores the answer <strong>14 out of 14</strong> on a rubric of principles the corpus actually states. The single reproducible failure is a retrieval defect, not a reasoning one, and it reproduces identically across four different language models, which localises it precisely.</p>
+<p><strong>Principal engineering finding.</strong> Nearly every quality problem encountered during development was a <em>retrieval</em> problem masquerading as a model problem. Fixing document chunking doubled retrieval recall at fixed cost; adding pre-computed per-document digests took the broad-synthesis case from unanswerable to full marks. Changing the language model, by contrast, moved the headline score comparatively little (<a href="#sec-tradeoffs" class="quarto-xref">Section&nbsp;4.4</a>).</p>
+</section>
+<section id="introduction" class="level1">
+<h1>Introduction</h1>
+<section id="problem-statement" class="level2">
+<h2 class="anchored" data-anchor-id="problem-statement">Problem Statement</h2>
+<p>A neurotechnology company faces a proliferation of ethical and regulatory guidance with, as the workshop framing put it, “unclear implementation pathways”. The instruments are public, lengthy, and written for regulators rather than founders. UNESCO’s recommendation alone runs to over a hundred thousand characters across nine principles, seven values, and twelve areas of policy action; the EU AI Act is five times longer again.</p>
+<p>The practical question a founder asks is not “what does Article 9 say” but “what applies to <em>us</em>, and what must we actually do about it”. Answering that today requires either in-house neuroethics expertise — which the workshop identified as absent in most companies — or expensive external counsel.</p>
+<p>The system addresses a narrow, tractable slice of this: <strong>making the primary sources directly interrogable in natural language, with answers grounded in and attributed to the documents themselves.</strong></p>
+</section>
+<section id="motivation" class="level2">
+<h2 class="anchored" data-anchor-id="motivation">Motivation</h2>
+<p>The motivation is documented rather than assumed. The predecessor tool was tested by practitioners at the Asilomar workshop, and its shortcomings were recorded in structured feedback <span class="citation" data-cites="asilomar2026workshop">(<a href="#ref-asilomar2026workshop" role="doc-biblioref">IDUN Technologies and Ningen Neuroethics Co-Lab 2026</a>)</span>.</p>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-2-contents" aria-controls="callout-2" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Tip</span>Optional: chart the feedback themes
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-2" class="callout-2-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The report currently reports the workshop themes as prose and a table, which needs no execution environment. To chart them instead, commit the exported response CSVs to <code>report/data/</code> and add a figure chunk along these lines — note this requires <code>jupyter</code> and <code>matplotlib</code>, which are deliberately <em>not</em> project dependencies.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> matplotlib.pyplot <span class="im">as</span> plt</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pandas <span class="im">as</span> pd</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>responses <span class="op">=</span> pd.read_csv(<span class="st">"data/asilomar_feedback.csv"</span>)</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Code each free-text response against the theme list below, then:</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="co">#   rigidity / binary scoring · wants dialogue or AI facilitator · workflow fit</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co">#   scope too narrow · Western regulatory framing · cannot replace humans</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>themes <span class="op">=</span> responses[<span class="st">"theme"</span>].value_counts()</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>ax <span class="op">=</span> themes.sort_values().plot.barh()</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>ax.set_xlabel(<span class="st">"Responses mentioning theme"</span>)</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>plt.tight_layout()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</div>
+</div>
+<p>Five criticisms were reported back to the room, and they map cleanly onto design requirements for a successor:</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 50%">
+<col style="width: 50%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Workshop finding</th>
+<th>Design consequence</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Questions feel too academic, obvious, or leading</td>
+<td>Let the user pose the question; do not script it</td>
+</tr>
+<tr class="even">
+<td>UX friction, limited interaction options</td>
+<td>Conversational interface, not a form</td>
+</tr>
+<tr class="odd">
+<td>EU/Western regulatory framing may not translate globally</td>
+<td>Explicit jurisdiction selection; global instruments always in scope</td>
+</tr>
+<tr class="even">
+<td>Scope too narrowly focused on partnerships</td>
+<td>Answer any question the corpus can support</td>
+</tr>
+<tr class="odd">
+<td>Doesn’t fit a real workflow</td>
+<td>Run locally, answer on demand, no orchestration required</td>
+</tr>
+</tbody>
+</table>
+<p>The free-text responses were more specific still. One table asked for “a more vector based overall tendence rather than a red flag for a not checked box”; another for a shift “from yes no to text / process”. A third argued the tool should “describe the potential risk exposure of the partnership” instead of emitting red flags at the end. Several converged independently on an AI facilitator that could “adapt to circumstances as ethical boundaries and technologies change”.</p>
+<p>Two cautions from the same feedback are treated here as binding constraints rather than aspirations. First: “This tool doesn’t replace the need for more education, collaboration, and experts (human).” Second: the tool should not “create new mechanisms where some already exist”. The system is therefore scoped as a <em>reference instrument</em> — it surfaces and attributes what the governing documents say. It does not score partners, does not decide, and does not attempt to replace counsel or an ethics advisory board.</p>
+</section>
+<section id="scope-and-objectives" class="level2">
+<h2 class="anchored" data-anchor-id="scope-and-objectives">Scope and Objectives</h2>
+<p><strong>In scope.</strong></p>
+<ul>
+<li>Natural-language questions answered strictly from an indexed corpus of ethical and legal instruments.</li>
+<li>Answers attributed to the specific documents they draw on.</li>
+<li>Jurisdiction awareness: global instruments always apply; EU and California regimes are opt-in, so a Californian company is not advised out of EU law it is not subject to.</li>
+<li>Two question types: specific factual lookup, and broad synthesis across a whole document.</li>
+<li>Fully local execution, including the language model.</li>
+<li>User-supplied documents in addition to the shipped corpus.</li>
+</ul>
+<p><strong>Out of scope</strong>, deliberately, and consistent with the predecessor tool’s own stated boundaries (workshop slide 16) and the workshop’s caution against over-reach:</p>
+<ul>
+<li>Scoring, ranking, or red-flagging partners.</li>
+<li>Standalone decision-making, or any output framed as a decision.</li>
+<li>Legal advice or a compliance attestation.</li>
+<li>Replacing live discussion, an ethics advisory board, or counsel.</li>
+</ul>
+<p><strong>Objectives.</strong> The system is judged against three: (i) answers are <em>grounded</em> — supported by the corpus and attributed to it; (ii) questions the corpus cannot answer are <em>refused</em> rather than fabricated; and (iii) broad questions receive <em>complete</em> answers, not a plausible-sounding subset. <a href="#sec-evaluation" class="quarto-xref">Section&nbsp;4</a> reports performance against each.</p>
+</section>
+</section>
+<section id="system-architecture" class="level1">
+<h1>System Architecture</h1>
+<section id="high-level-design" class="level2">
+<h2 class="anchored" data-anchor-id="high-level-design">High-Level Design</h2>
+<p>The system is three containers: a Streamlit front end, a Chroma vector store, and an Ollama runtime hosting the language models. Nothing else is required, and no network egress occurs after the initial model download.</p>
+<div class="cell" data-layout-align="default">
+<div class="cell-output-display">
+<div id="fig-architecture" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-architecture-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div>
+<pre class="mermaid mermaid-js" data-label="fig-architecture">flowchart TB
+    subgraph HOST["Local machine — Docker Compose (no network egress after setup)"]
+        subgraph UI["Frontend (Streamlit)"]
+            Q["Question + jurisdiction selection"]
+            A["Streamed answer + sources + copy"]
+        end
+
+        subgraph APP["Application logic"]
+            CLS["Mode classifier&lt;br/&gt;(llama3.2)"]
+            RET["Retriever&lt;br/&gt;filter: kind + jurisdiction"]
+            GRD["Grounding constraints&lt;br/&gt;system prompt, temp=0,&lt;br/&gt;context budget"]
+            PRM["Prompt assembly&lt;br/&gt;+ token budgeting"]
+        end
+
+        subgraph STORE["Chroma vector store (persistent volume)"]
+            CC["content chunks&lt;br/&gt;verbatim excerpts"]
+            SC["summary chunks&lt;br/&gt;per-document digests"]
+        end
+
+        subgraph OLL["Ollama runtime"]
+            EMB["Embedding model&lt;br/&gt;nomic-embed-text"]
+            LLM["Chat model&lt;br/&gt;gpt-oss:20b"]
+        end
+
+        DOCS[("data/documents&lt;br/&gt;7 instruments (markdown)")]
+        DIGS[("data/digests&lt;br/&gt;committed digest files")]
+    end
+
+    Q --&gt; CLS --&gt; RET
+    RET --&gt;|specific| CC
+    RET --&gt;|broad| SC
+    CC --&gt; PRM
+    SC --&gt; PRM
+    RET -.embeds query.-&gt; EMB
+    PRM --&gt; GRD --&gt; LLM --&gt; A
+
+    DOCS -.chunk + embed.-&gt; CC
+    DIGS -.load + embed.-&gt; SC
+    DOCS -.optional offline&lt;br/&gt;digest generation.-&gt; DIGS
+
+    classDef store fill:#eef,stroke:#557
+    classDef model fill:#efe,stroke:#575
+    class CC,SC,DOCS,DIGS store
+    class EMB,LLM,CLS model
+</pre>
+</div>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-architecture-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;1: Component and data flow. Ingestion (dashed) runs offline and ahead of time; the query path (solid) is what a user experiences. Everything inside the boundary runs on the user’s machine.
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p>The query path is: classify the question, retrieve from the matching pool under the active jurisdiction filter, assemble a prompt within a token budget, and stream a grounded answer back with its sources.</p>
+</section>
+<section id="component-descriptions" class="level2">
+<h2 class="anchored" data-anchor-id="component-descriptions">Component Descriptions</h2>
+<section id="tokenization-and-context-budgeting" class="level3">
+<h3 class="anchored" data-anchor-id="tokenization-and-context-budgeting">Tokenization and context budgeting</h3>
+<p>The system does not implement a tokenizer. Tokenization happens inside the model runtime, and the application deliberately does not duplicate it. What the application <em>does</em> own is <strong>context budgeting</strong>, and it is worth being precise about the distinction because the naive approach fails silently.</p>
+<p>Ollama defaults to a 2048-token context window regardless of the model’s actual capacity. Retrieved context that exceeds it is silently truncated — the request succeeds, the answer is simply built on less evidence than intended. The system therefore estimates prompt size (at roughly four characters per token, adequate for sizing) and sets <code>num_ctx</code> explicitly per request.</p>
+<p>The same budget governs conversation history. Retrieved evidence and the current question are non-negotiable; whatever budget remains is filled with prior turns, newest first. History is dropped oldest-first only when the prompt would otherwise overflow, and the interface reports when it happens rather than truncating invisibly.</p>
+</section>
+<section id="language-models" class="level3">
+<h3 class="anchored" data-anchor-id="language-models">Language models</h3>
+<p>Four model roles are separated, each on a different model, all local:</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Role</th>
+<th>Model</th>
+<th>Rationale</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Chat / answering</td>
+<td><code>gpt-oss:20b</code></td>
+<td>Best measured grounding fidelity (<a href="#sec-tradeoffs" class="quarto-xref">Section&nbsp;4.4</a>)</td>
+</tr>
+<tr class="even">
+<td>Embedding</td>
+<td><code>nomic-embed-text</code></td>
+<td>Shared by ingestion and query, so both sit in one vector space</td>
+</tr>
+<tr class="odd">
+<td>Mode classification</td>
+<td><code>llama3.2</code></td>
+<td>Binary routing is easy; a small model keeps added latency small</td>
+</tr>
+<tr class="even">
+<td>Evaluation judge</td>
+<td><code>gemma4:12b</code></td>
+<td>Deliberately a <em>different family</em> from the chat model</td>
+</tr>
+</tbody>
+</table>
+<p>The judge separation is a methodological safeguard: a model grading its own output shares its blind spots, so scores would be inflated in exactly the cases that matter. Generation runs at <code>temperature=0</code> with a fixed seed for reproducibility, though bit-identical output is not achievable on this stack — see <a href="#sec-failures" class="quarto-xref">Section&nbsp;4.3</a>.</p>
+</section>
+<section id="retrieval" class="level3">
+<h3 class="anchored" data-anchor-id="retrieval">Retrieval</h3>
+<p>Retrieval is the component with the most design content, because it is where nearly every observed quality problem originated.</p>
+<p><strong>Two pools, not one.</strong> Chunks are tagged <code>content</code> (verbatim document excerpts) or <code>summary</code> (statements from a pre-built per-document digest). Specific questions search excerpts; broad questions search digests. The reason is measured, not stylistic: for the question <em>“summarise the legal and ethical principles underlying responsible neurotechnology development”</em>, similarity search over excerpts retrieved <strong>0 of 3</strong> known-relevant passages at <em>k</em>=50, and required <em>k</em>=200 of 521 chunks — 38% of the entire corpus — to reach 2 of 3. An abstract query matches abstract framing language, not the specific provisions that actually answer it. Digests solve this by making each retrievable unit a dense, self-contained statement.</p>
+<p><strong>Line-aware chunking.</strong> Chunks are packed on line boundaries rather than cut at fixed character offsets. Fixed-offset chunking had placed six unrelated definitions in one chunk, averaging its embedding across all six; the query “what is cognitive liberty?” then failed to retrieve the passage that literally defines it until <em>k</em>=50. After the fix, it retrieves at <em>k</em>=4.</p>
+<p><strong>Jurisdiction filtering.</strong> Every chunk carries a jurisdiction. Retrieval is restricted to <code>Global</code> plus whatever the user selects, so EU regulation cannot shape an answer for a company not subject to it.</p>
+</section>
+<section id="digests" class="level3">
+<h3 class="anchored" data-anchor-id="digests">Digests</h3>
+<p>Digests are the mechanism that makes broad questions answerable. Each document is read once, ahead of time, and reduced to a list of the statements it makes; those statements are stored as <code>summary</code> chunks.</p>
+<p>Two properties are deliberate. First, digest generation is a <strong>separate, explicit command</strong>, never part of startup — it costs tens of minutes to hours of CPU inference per document, and a colleague’s first launch must not hang on it. Second, digests are <strong>files committed to the repository</strong>, not merely rows in the vector store. They therefore survive the vector store being rebuilt, ship with the application so nobody regenerates them, and can be produced by any model — including a frontier model via a web interface, which is how the current corpus digests were produced.</p>
+<p>That second property was learned the hard way: an early metadata migration wiped the collection and destroyed hours of generated digests, because they existed only inside Chroma. File-backed digests make that failure unreachable.</p>
+</section>
+<section id="guardrails" class="level3">
+<h3 class="anchored" data-anchor-id="guardrails">Guardrails</h3>
+<p>“Guardrails” here means a set of constraints on what the system will assert, not a separate moderation library.</p>
+<ul>
+<li><strong>Grounding instruction.</strong> The system prompt restricts answers to the supplied context and requires source attribution. It also, deliberately, instructs the model <em>not</em> to hedge when the context does support a conclusion — an earlier, stricter version caused the model to refuse questions it could actually answer.</li>
+<li><strong>Refusal.</strong> Questions the corpus cannot support are declined. This is measured as a first-class test case, not assumed.</li>
+<li><strong>Determinism.</strong> <code>temperature=0</code> and a fixed seed.</li>
+<li><strong>Jurisdictional scoping</strong>, as above.</li>
+<li><strong>Visible routing.</strong> The mode actually used is displayed with each answer, so an automatic misroute is visible rather than silently producing a worse answer.</li>
+<li><strong>Graceful degradation.</strong> A broad question asked before digests exist falls back to excerpts <em>and says so</em>, rather than answering from an empty context.</li>
+</ul>
+</section>
+<section id="local-storage-and-privacy" class="level3">
+<h3 class="anchored" data-anchor-id="local-storage-and-privacy">Local storage and privacy</h3>
+<p>All state is local: documents on disk, vectors in a Docker volume, models in a second volume, conversation history in browser session state only and never persisted to the vector store. After the one-time model download, the stack requires no network access.</p>
+<p>This is a functional requirement rather than a stance. The questions a company asks an ethics tool — about a specific partner, a contemplated use case, a regulatory exposure — are among the more sensitive things it could transmit.</p>
+</section>
+<section id="containerization" class="level3">
+<h3 class="anchored" data-anchor-id="containerization">Containerization</h3>
+<p>Three services under Docker Compose: <code>app</code> (Streamlit), <code>chroma</code>, and <code>ollama</code>. Named volumes persist models and vectors; <code>data/documents</code> is bind-mounted so documents can be added from the host. Models are pulled automatically on first run, so <code>docker compose up --build</code> is the only command a new user issues.</p>
+</section>
+<section id="frontend" class="level3">
+<h3 class="anchored" data-anchor-id="frontend">Frontend</h3>
+<p>A single-page Streamlit chat interface. The sidebar lists indexed documents by title, grouped by jurisdiction, with a selector for where the user operates. Answers stream token-by-token, followed by the mode used, the retrieved sources, and a copy-to-clipboard control for pasting into the user’s own documents.</p>
+</section>
+</section>
+</section>
+<section id="sec-evaluation" class="level1">
+<h1>Evaluation</h1>
+<section id="yardstick" class="level2">
+<h2 class="anchored" data-anchor-id="yardstick">Yardstick</h2>
+<p>Evaluation is deliberately split by <em>stage</em>, because a drop in end-to-end answer quality is otherwise unattributable — retrieval and generation fail for different reasons and have different remedies.</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 25%">
+<col style="width: 25%">
+<col style="width: 25%">
+<col style="width: 25%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Layer</th>
+<th>What it measures</th>
+<th>Cost</th>
+<th>Where</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Retrieval eval</td>
+<td>Does the known-correct passage reach the model at all?</td>
+<td>Seconds, no LLM</td>
+<td><code>evals/retrieval.py</code></td>
+</tr>
+<tr class="even">
+<td>Answer eval</td>
+<td>Is the answer correct, per case-specific criteria?</td>
+<td>Minutes</td>
+<td><code>evals/run.py</code></td>
+</tr>
+<tr class="odd">
+<td>Regression tests</td>
+<td>Does the pipeline still behave?</td>
+<td>~5 min, small model</td>
+<td><code>tests/</code></td>
+</tr>
+</tbody>
+</table>
+<p>The gold dataset lives in <code>evals/dataset.py</code> and is the single source of truth; graders live in <code>evals/graders.py</code>. Both runners consume the same definitions, so a regression test and an eval score cannot disagree about what “correct” means. Every expected answer was verified against the document text before being recorded.</p>
+<p>Three grader types are used. <code>refusal</code> checks that an unanswerable question is declined. <code>contains</code> checks that required content appears, with synonym groups so that phrasing is not over-constrained. <code>judge</code> asks a second model, one rubric item at a time, whether the answer conveys a specific principle — a narrow binary question a smaller model can answer reliably, unlike an open-ended “is this good?”.</p>
+</section>
+<section id="results-by-mode" class="level2">
+<h2 class="anchored" data-anchor-id="results-by-mode">Results by Mode</h2>
+<div id="tbl-results" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-results-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table&nbsp;1: End-to-end results, seven gold cases, chat model <code>gpt-oss:20b</code>.
+</figcaption>
+<div aria-describedby="tbl-results-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="caption-top table">
+<colgroup>
+<col style="width: 18%">
+<col style="width: 18%">
+<col style="width: 18%">
+<col style="width: 25%">
+<col style="width: 18%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Case</th>
+<th>Grader</th>
+<th>Mode</th>
+<th style="text-align: center;">Result</th>
+<th>Note</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>cake-refusal</code></td>
+<td>refusal</td>
+<td>Question answering</td>
+<td style="text-align: center;"><strong>PASS</strong></td>
+<td>Correctly declines; no cake document indexed</td>
+</tr>
+<tr class="even">
+<td><code>time-off-right</code></td>
+<td>contains</td>
+<td>Question answering</td>
+<td style="text-align: center;"><strong>PASS</strong></td>
+<td>Cites UDHR Article 24</td>
+</tr>
+<tr class="odd">
+<td><code>oecd-due-regard</code></td>
+<td>contains</td>
+<td>Question answering</td>
+<td style="text-align: center;"><strong>FAIL</strong></td>
+<td>Retrieval defect — see <a href="#sec-failures" class="quarto-xref">Section&nbsp;4.3</a></td>
+</tr>
+<tr class="even">
+<td><code>cognitive-liberty</code></td>
+<td>contains</td>
+<td>Question answering</td>
+<td style="text-align: center;"><strong>PASS</strong></td>
+<td>Exact definition returned</td>
+</tr>
+<tr class="odd">
+<td><code>neural-data</code></td>
+<td>contains</td>
+<td>Question answering</td>
+<td style="text-align: center;"><strong>PASS</strong></td>
+<td>Definition with all required elements</td>
+</tr>
+<tr class="even">
+<td><code>equitable-access</code></td>
+<td>contains</td>
+<td>Question answering</td>
+<td style="text-align: center;"><strong>PASS</strong></td>
+<td>Names LMICs explicitly</td>
+</tr>
+<tr class="odd">
+<td><code>broad-principles</code></td>
+<td>judge</td>
+<td>Broad principles</td>
+<td style="text-align: center;"><strong>PASS</strong></td>
+<td>14/14 rubric coverage</td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+<p><strong>Question-answering mode: 5 of 6.</strong> Specific factual questions are reliably answered from verbatim excerpts at <em>k</em>=4 — the corpus is searched at low cost and the correct passage is returned.</p>
+<p><strong>Broad-principles mode: 14 of 14.</strong> The open synthesis question — the one the system was least able to answer before digests existed — now scores full marks against an independent judge on a rubric of fourteen principles the corpus states. For scale, the same question answered by naive retrieval covered roughly a third of them.</p>
+</section>
+<section id="sec-failures" class="level2">
+<h2 class="anchored" data-anchor-id="sec-failures">Common Failure Modes</h2>
+<p><strong>Retrieval loses to boilerplate.</strong> The one reproducible failure, <code>oecd-due-regard</code>, asks what societal values the OECD document says should be shown due regard. The answer is one clause of principle 1(d). The query names the document — “the OECD document” — and that phrase matches the OECD’s <em>front and back matter</em> far more strongly than its provisions. All six top-ranked chunks are the “About the OECD” section, citation lists, and the Compendium blurb. The provision never enters the context.</p>
+<p>This failure reproduces <strong>identically across four different chat models</strong>, which is the strongest available evidence that it is a retrieval defect rather than a reasoning one. The remedy is to strip boilerplate sections at ingestion — now straightforward, since the markdown conversion gave every document real headings.</p>
+<p><strong>Grader brittleness can masquerade as system failure.</strong> An initial scorecard read 4 of 7. Two of those three failures were defects in the <em>graders</em>: the chat model wrote “self‑determination” with a non-breaking hyphen, defeating an ASCII substring match on an answer that was exactly correct; and it refused the cake question with a phrasing absent from the refusal-phrase list. Both were real bugs, but in the measuring instrument. This is recorded here because the failure mode is insidious: an eval that under-reports looks like diligence.</p>
+<p><strong>Determinism is behavioural, not bit-exact.</strong> At <code>temperature=0</code> the model makes the same answer-versus-refuse decision every time, but token-identical output is not achievable: multithreaded floating-point reductions in the inference backend are non-associative, so near-tied logits can flip between runs. The regression tests assert the former and not the latter.</p>
+<p><strong>More context is not monotonically better.</strong> Retrieval recall plateaus between <em>k</em>=8 and <em>k</em>=30 on this corpus — every chunk past the eighth adds cost without adding evidence. Measured end-to-end, <em>k</em>=30 produced a <em>less</em> complete answer than <em>k</em>=12, consistent with the “lost in the middle” effect <span class="citation" data-cites="liu2023lostmiddle">(<a href="#ref-liu2023lostmiddle" role="doc-biblioref">Liu et al. 2023</a>)</span>. This is why the modes retrieve 4 and 12 chunks rather than as many as fit.</p>
+<p><strong>Corpus growth dilutes broad retrieval.</strong> With seven documents’ digests competing, the broad case needs a larger <em>k</em> to surface the same passages it found when two documents were indexed. The graded answer still scored 14/14, so this has not yet cost quality — but it is a scaling pressure to watch.</p>
+</section>
+<section id="sec-tradeoffs" class="level2">
+<h2 class="anchored" data-anchor-id="sec-tradeoffs">Trade-offs</h2>
+<div id="tbl-models" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-models-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table&nbsp;2: Chat model comparison across the full seven-case gold set. “Adjusted” corrects only for confirmed grader gaps, not genuine content misses.
+</figcaption>
+<div aria-describedby="tbl-models-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>Model</th>
+<th style="text-align: right;">Size (GB)</th>
+<th style="text-align: center;">Adjusted pass</th>
+<th style="text-align: center;">Broad coverage</th>
+<th style="text-align: right;">Total time (s)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>gpt-oss:20b</code> <em>(default)</em></td>
+<td style="text-align: right;">13.0</td>
+<td style="text-align: center;">6/7</td>
+<td style="text-align: center;"><strong>14/14</strong></td>
+<td style="text-align: right;">772</td>
+</tr>
+<tr class="even">
+<td><code>mistral-nemo:12b</code></td>
+<td style="text-align: right;">7.1</td>
+<td style="text-align: center;">5/7</td>
+<td style="text-align: center;">13/14</td>
+<td style="text-align: right;">713</td>
+</tr>
+<tr class="odd">
+<td><code>llama3:8b</code></td>
+<td style="text-align: right;">4.7</td>
+<td style="text-align: center;">5/7</td>
+<td style="text-align: center;">10/14</td>
+<td style="text-align: right;">535</td>
+</tr>
+<tr class="even">
+<td><code>gemma3:4b</code></td>
+<td style="text-align: right;">3.3</td>
+<td style="text-align: center;">5/7</td>
+<td style="text-align: center;">12/14</td>
+<td style="text-align: right;"><strong>306</strong></td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+<p><strong>Model size versus latency.</strong> <code>gemma3:4b</code> runs the full suite in 40% of the time of <code>gpt-oss:20b</code> and still reaches 12 of 14 on broad synthesis. The default remains <code>gpt-oss:20b</code> because grounding fidelity is the system’s purpose, but on constrained hardware the smaller model is a defensible choice — and notably, it fails nowhere that <code>gpt-oss:20b</code> does not also fail.</p>
+<p><strong>CPU inference is the binding constraint.</strong> With no GPU, answers take tens of seconds to a few minutes. Thread count was tested directly and is <em>not</em> a usable lever: forcing all sixteen logical cores was 2.1× <em>slower</em> than the runtime’s own auto-detection, because the two SMT threads per physical core contend for the same execution units. There is no free configuration win here.</p>
+<p><strong>Digest generation cost versus coverage.</strong> Digests are what make broad questions work, and they are expensive: the EU AI Act alone was estimated at roughly thirteen hours of local CPU inference. The resolution was to decouple generation from the application — digests are portable files that can be produced anywhere, by any model, and committed. Local generation remains supported for users who cannot use an external model, at a cost in time rather than in capability.</p>
+<p><strong>Local-only versus quality.</strong> Running a 20B-parameter model on a laptop CPU costs real answer quality relative to a frontier model. This is accepted deliberately: the confidentiality of the questions is the system’s reason for existing, and an architecture that sent them elsewhere would not be the same product.</p>
+<p><strong>Multi-query retrieval: a rejected approach.</strong> Decomposing a broad question into targeted sub-queries was implemented and measured. It produced no recall improvement, ran roughly 400× slower than single-query retrieval, and generated sub-queries containing vocabulary absent from the corpus. It is retained in the codebase but disabled by default. It is recorded here because the negative result is informative: the fix for broad questions was better <em>source material</em> (digests), not cleverer querying.</p>
+</section>
+</section>
+<section id="appendix-corpus" class="level1">
+<h1>Appendix: Corpus</h1>
+<div id="tbl-corpus" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-corpus-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table&nbsp;3: Indexed corpus. Global instruments always apply; jurisdiction-specific instruments are opt-in.
+</figcaption>
+<div aria-describedby="tbl-corpus-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Instrument</th>
+<th>Jurisdiction</th>
+<th style="text-align: right;">Adopted</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Universal Declaration of Human Rights <span class="citation" data-cites="un1948udhr">(<a href="#ref-un1948udhr" role="doc-biblioref">United Nations General Assembly 1948</a>)</span></td>
+<td>Global</td>
+<td style="text-align: right;">1948</td>
+</tr>
+<tr class="even">
+<td>UN Guiding Principles on Business and Human Rights <span class="citation" data-cites="un2011guiding">(<a href="#ref-un2011guiding" role="doc-biblioref">United Nations 2011</a>)</span></td>
+<td>Global</td>
+<td style="text-align: right;">2011</td>
+</tr>
+<tr class="odd">
+<td>OECD Recommendation on Responsible Innovation in Neurotechnology <span class="citation" data-cites="oecd2019neurotech">(<a href="#ref-oecd2019neurotech" role="doc-biblioref">OECD 2019</a>)</span></td>
+<td>Global</td>
+<td style="text-align: right;">2019</td>
+</tr>
+<tr class="even">
+<td>UNESCO Recommendation on the Ethics of Neurotechnology <span class="citation" data-cites="unesco2025neurotech">(<a href="#ref-unesco2025neurotech" role="doc-biblioref">UNESCO 2025</a>)</span></td>
+<td>Global</td>
+<td style="text-align: right;">2025</td>
+</tr>
+<tr class="odd">
+<td>EU General Data Protection Regulation (GDPR) <span class="citation" data-cites="eu2016gdpr">(<a href="#ref-eu2016gdpr" role="doc-biblioref">European Parliament and Council of the European Union 2016</a>)</span></td>
+<td>European Union</td>
+<td style="text-align: right;">2016</td>
+</tr>
+<tr class="even">
+<td>EU Artificial Intelligence Act <span class="citation" data-cites="eu2024aiact">(<a href="#ref-eu2024aiact" role="doc-biblioref">European Parliament and Council of the European Union 2024</a>)</span></td>
+<td>European Union</td>
+<td style="text-align: right;">2024</td>
+</tr>
+<tr class="odd">
+<td>California Consumer Privacy Act (CCPA) <span class="citation" data-cites="ccpa2018">(<a href="#ref-ccpa2018" role="doc-biblioref">State of California 2018</a>)</span></td>
+<td>California</td>
+<td style="text-align: right;">2018</td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+<p>The indexed corpus comprises <strong>3,630 content chunks</strong> and <strong>173 digest chunks</strong> across seven instruments. All seven are stored as markdown; conversion from PDF was necessary rather than cosmetic, as extraction from the Official Journal typesetting of the GDPR corrupted roughly one word in four (<code>ar ticle</code>, <code>p aragraph</code>, <code>author ised</code>), which would have made that document effectively unsearchable.</p>
+</section>
+<section id="references" class="level1">
+<h1>References</h1>
+<div id="refs" class="references csl-bib-body hanging-indent" role="list">
+<div id="ref-eu2016gdpr" class="csl-entry" role="listitem">
+European Parliament and Council of the European Union. 2016. <em>Regulation (EU) 2016/679 (General Data Protection Regulation)</em>.
+</div>
+<div id="ref-eu2024aiact" class="csl-entry" role="listitem">
+European Parliament and Council of the European Union. 2024. <em>Regulation (EU) 2024/1689 (Artificial Intelligence Act)</em>.
+</div>
+<div id="ref-asilomar2026workshop" class="csl-entry" role="listitem">
+IDUN Technologies, and Ningen Neuroethics Co-Lab. 2026. <em>Neuroethics Toolkit: A Navigation Guide for Neuro-Entrepreneurs — Workshop</em>.
+</div>
+<div id="ref-liu2023lostmiddle" class="csl-entry" role="listitem">
+Liu, Nelson F., Kevin Lin, John Hewitt, et al. 2023. <span>“Lost in the Middle: How Language Models Use Long Contexts.”</span> In <em>Transactions of the Association for Computational Linguistics</em>.
+</div>
+<div id="ref-oecd2019neurotech" class="csl-entry" role="listitem">
+OECD. 2019. <em>Recommendation of the Council on Responsible Innovation in Neurotechnology</em>. OECD Legal Instruments.
+</div>
+<div id="ref-ccpa2018" class="csl-entry" role="listitem">
+State of California. 2018. <em>California Consumer Privacy Act of 2018, as Amended by the California Privacy Rights Act</em>.
+</div>
+<div id="ref-unesco2025neurotech" class="csl-entry" role="listitem">
+UNESCO. 2025. <em>Recommendation on the Ethics of Neurotechnology</em>. UNESCO document 397812eng.
+</div>
+<div id="ref-un2011guiding" class="csl-entry" role="listitem">
+United Nations. 2011. <em>Guiding Principles on Business and Human Rights: Implementing the United Nations <span>“Protect, Respect and Remedy”</span> Framework</em>.
+</div>
+<div id="ref-un1948udhr" class="csl-entry" role="listitem">
+United Nations General Assembly. 1948. <em>Universal Declaration of Human Rights</em>.
+</div>
+</div>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

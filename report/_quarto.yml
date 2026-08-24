@@ -1,0 +1,9 @@
+project:
+  type: default
+  output-dir: .
+
+execute:
+  echo: false
+  warning: false
+  message: false
+  freeze: auto

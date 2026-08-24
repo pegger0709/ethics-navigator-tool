@@ -1,0 +1,526 @@
+---
+title: "Ethics Navigator: A Local-First Retrieval System for Neuroethics Guidance"
+subtitle: "Design, architecture, and evaluation of the conversational successor to the rules-based Navigation Tool"
+author: "Philip Egger"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    code-fold: true
+    theme: cosmo
+    fig-cap-location: bottom
+  pdf:
+    toc: true
+    number-sections: true
+execute:
+  echo: false
+  warning: false
+  message: false
+bibliography: references.bib
+---
+
+# Executive Summary
+
+::: {.callout-note}
+## Draft status
+Written last, as an abstract of the sections that follow. Figures for corpus
+composition and the model trade-off are generated from live project data; the
+evaluation numbers are from the measured runs described in @sec-evaluation.
+:::
+
+The Ethics Navigator is a locally-hosted question-answering system that lets a
+neurotechnology company interrogate the ethical and legal instruments that
+govern its work — UNESCO's neurotechnology recommendation, the OECD's
+responsible-innovation principles, the UN Guiding Principles on Business and
+Human Rights, the Universal Declaration of Human Rights, and the
+jurisdiction-specific regimes of the EU and California.
+
+It is the successor to a rules-based Navigation Tool piloted at the Asilomar
+workshop in March 2026 [@asilomar2026workshop]. That earlier tool asked a fixed
+questionnaire and returned red flags. Workshop participants rejected it for
+rigidity: the questions felt "too academic, obvious, or leading", the scope was
+"too narrowly focused on partnerships", and it "doesn't feel like it fits into a
+real workflow". The most frequently requested replacement was, in participants'
+own words, an "interactive 'chatbot' type portal" and an "AI-Agent as process
+facilitator". This system is that pivot: from a fixed decision tree to a
+grounded conversation over primary sources.
+
+The system runs entirely on the user's own machine. Documents, questions, and
+answers never leave it — a requirement, not a preference, given that the
+questions a company asks an ethics tool are themselves commercially and legally
+sensitive.
+
+**Headline results.** Against a seven-case gold dataset, the system answers
+6 of 7 correctly. On the hardest case — an open request to summarise every
+principle governing responsible neurotechnology development — an independent
+judge model scores the answer **14 out of 14** on a rubric of principles the
+corpus actually states. The single reproducible failure is a retrieval defect,
+not a reasoning one, and it reproduces identically across four different
+language models, which localises it precisely.
+
+**Principal engineering finding.** Nearly every quality problem encountered
+during development was a *retrieval* problem masquerading as a model problem.
+Fixing document chunking doubled retrieval recall at fixed cost; adding
+pre-computed per-document digests took the broad-synthesis case from
+unanswerable to full marks. Changing the language model, by contrast, moved the
+headline score comparatively little (@sec-tradeoffs).
+
+# Introduction
+
+## Problem Statement
+
+A neurotechnology company faces a proliferation of ethical and regulatory
+guidance with, as the workshop framing put it, "unclear implementation
+pathways". The instruments are public, lengthy, and written for regulators
+rather than founders. UNESCO's recommendation alone runs to over a hundred
+thousand characters across nine principles, seven values, and twelve areas of
+policy action; the EU AI Act is five times longer again.
+
+The practical question a founder asks is not "what does Article 9 say" but
+"what applies to *us*, and what must we actually do about it". Answering that
+today requires either in-house neuroethics expertise — which the workshop
+identified as absent in most companies — or expensive external counsel.
+
+The system addresses a narrow, tractable slice of this: **making the primary
+sources directly interrogable in natural language, with answers grounded in and
+attributed to the documents themselves.**
+
+## Motivation
+
+The motivation is documented rather than assumed. The predecessor tool was
+tested by practitioners at the Asilomar workshop, and its shortcomings were
+recorded in structured feedback [@asilomar2026workshop].
+
+::: {.callout-tip collapse="true"}
+## Optional: chart the feedback themes
+The report currently reports the workshop themes as prose and a table, which
+needs no execution environment. To chart them instead, commit the exported
+response CSVs to `report/data/` and add a figure chunk along these lines — note
+this requires `jupyter` and `matplotlib`, which are deliberately *not* project
+dependencies.
+
+```python
+import matplotlib.pyplot as plt
+import pandas as pd
+
+responses = pd.read_csv("data/asilomar_feedback.csv")
+# Code each free-text response against the theme list below, then:
+#   rigidity / binary scoring · wants dialogue or AI facilitator · workflow fit
+#   scope too narrow · Western regulatory framing · cannot replace humans
+themes = responses["theme"].value_counts()
+ax = themes.sort_values().plot.barh()
+ax.set_xlabel("Responses mentioning theme")
+plt.tight_layout()
+```
+:::
+
+Five criticisms were reported back to the room, and they map cleanly onto design
+requirements for a successor:
+
+| Workshop finding | Design consequence |
+|---|---|
+| Questions feel too academic, obvious, or leading | Let the user pose the question; do not script it |
+| UX friction, limited interaction options | Conversational interface, not a form |
+| EU/Western regulatory framing may not translate globally | Explicit jurisdiction selection; global instruments always in scope |
+| Scope too narrowly focused on partnerships | Answer any question the corpus can support |
+| Doesn't fit a real workflow | Run locally, answer on demand, no orchestration required |
+
+The free-text responses were more specific still. One table asked for "a more
+vector based overall tendence rather than a red flag for a not checked box";
+another for a shift "from yes no to text / process". A third argued the tool
+should "describe the potential risk exposure of the partnership" instead of
+emitting red flags at the end. Several converged independently on an AI
+facilitator that could "adapt to circumstances as ethical boundaries and
+technologies change".
+
+Two cautions from the same feedback are treated here as binding constraints
+rather than aspirations. First: "This tool doesn't replace the need for more
+education, collaboration, and experts (human)." Second: the tool should not
+"create new mechanisms where some already exist". The system is therefore
+scoped as a *reference instrument* — it surfaces and attributes what the
+governing documents say. It does not score partners, does not decide, and does
+not attempt to replace counsel or an ethics advisory board.
+
+## Scope and Objectives
+
+**In scope.**
+
+- Natural-language questions answered strictly from an indexed corpus of
+  ethical and legal instruments.
+- Answers attributed to the specific documents they draw on.
+- Jurisdiction awareness: global instruments always apply; EU and California
+  regimes are opt-in, so a Californian company is not advised out of EU law it
+  is not subject to.
+- Two question types: specific factual lookup, and broad synthesis across a
+  whole document.
+- Fully local execution, including the language model.
+- User-supplied documents in addition to the shipped corpus.
+
+**Out of scope**, deliberately, and consistent with the predecessor tool's own
+stated boundaries (workshop slide 16) and the workshop's caution against
+over-reach:
+
+- Scoring, ranking, or red-flagging partners.
+- Standalone decision-making, or any output framed as a decision.
+- Legal advice or a compliance attestation.
+- Replacing live discussion, an ethics advisory board, or counsel.
+
+**Objectives.** The system is judged against three: (i) answers are *grounded* —
+supported by the corpus and attributed to it; (ii) questions the corpus cannot
+answer are *refused* rather than fabricated; and (iii) broad questions receive
+*complete* answers, not a plausible-sounding subset. @sec-evaluation reports
+performance against each.
+
+# System Architecture
+
+## High-Level Design
+
+The system is three containers: a Streamlit front end, a Chroma vector store,
+and an Ollama runtime hosting the language models. Nothing else is required,
+and no network egress occurs after the initial model download.
+
+```{mermaid}
+%%| label: fig-architecture
+%%| fig-cap: "Component and data flow. Ingestion (dashed) runs offline and ahead of time; the query path (solid) is what a user experiences. Everything inside the boundary runs on the user's machine."
+flowchart TB
+    subgraph HOST["Local machine — Docker Compose (no network egress after setup)"]
+        subgraph UI["Frontend (Streamlit)"]
+            Q["Question + jurisdiction selection"]
+            A["Streamed answer + sources + copy"]
+        end
+
+        subgraph APP["Application logic"]
+            CLS["Mode classifier<br/>(llama3.2)"]
+            RET["Retriever<br/>filter: kind + jurisdiction"]
+            GRD["Grounding constraints<br/>system prompt, temp=0,<br/>context budget"]
+            PRM["Prompt assembly<br/>+ token budgeting"]
+        end
+
+        subgraph STORE["Chroma vector store (persistent volume)"]
+            CC["content chunks<br/>verbatim excerpts"]
+            SC["summary chunks<br/>per-document digests"]
+        end
+
+        subgraph OLL["Ollama runtime"]
+            EMB["Embedding model<br/>nomic-embed-text"]
+            LLM["Chat model<br/>gpt-oss:20b"]
+        end
+
+        DOCS[("data/documents<br/>7 instruments (markdown)")]
+        DIGS[("data/digests<br/>committed digest files")]
+    end
+
+    Q --> CLS --> RET
+    RET -->|specific| CC
+    RET -->|broad| SC
+    CC --> PRM
+    SC --> PRM
+    RET -.embeds query.-> EMB
+    PRM --> GRD --> LLM --> A
+
+    DOCS -.chunk + embed.-> CC
+    DIGS -.load + embed.-> SC
+    DOCS -.optional offline<br/>digest generation.-> DIGS
+
+    classDef store fill:#eef,stroke:#557
+    classDef model fill:#efe,stroke:#575
+    class CC,SC,DOCS,DIGS store
+    class EMB,LLM,CLS model
+```
+
+The query path is: classify the question, retrieve from the matching pool under
+the active jurisdiction filter, assemble a prompt within a token budget, and
+stream a grounded answer back with its sources.
+
+## Component Descriptions
+
+### Tokenization and context budgeting
+
+The system does not implement a tokenizer. Tokenization happens inside the
+model runtime, and the application deliberately does not duplicate it. What the
+application *does* own is **context budgeting**, and it is worth being precise
+about the distinction because the naive approach fails silently.
+
+Ollama defaults to a 2048-token context window regardless of the model's actual
+capacity. Retrieved context that exceeds it is silently truncated — the request
+succeeds, the answer is simply built on less evidence than intended. The system
+therefore estimates prompt size (at roughly four characters per token, adequate
+for sizing) and sets `num_ctx` explicitly per request.
+
+The same budget governs conversation history. Retrieved evidence and the current
+question are non-negotiable; whatever budget remains is filled with prior turns,
+newest first. History is dropped oldest-first only when the prompt would
+otherwise overflow, and the interface reports when it happens rather than
+truncating invisibly.
+
+### Language models
+
+Four model roles are separated, each on a different model, all local:
+
+| Role | Model | Rationale |
+|---|---|---|
+| Chat / answering | `gpt-oss:20b` | Best measured grounding fidelity (@sec-tradeoffs) |
+| Embedding | `nomic-embed-text` | Shared by ingestion and query, so both sit in one vector space |
+| Mode classification | `llama3.2` | Binary routing is easy; a small model keeps added latency small |
+| Evaluation judge | `gemma4:12b` | Deliberately a *different family* from the chat model |
+
+The judge separation is a methodological safeguard: a model grading its own
+output shares its blind spots, so scores would be inflated in exactly the cases
+that matter. Generation runs at `temperature=0` with a fixed seed for
+reproducibility, though bit-identical output is not achievable on this stack —
+see @sec-failures.
+
+### Retrieval
+
+Retrieval is the component with the most design content, because it is where
+nearly every observed quality problem originated.
+
+**Two pools, not one.** Chunks are tagged `content` (verbatim document
+excerpts) or `summary` (statements from a pre-built per-document digest).
+Specific questions search excerpts; broad questions search digests. The reason
+is measured, not stylistic: for the question *"summarise the legal and ethical
+principles underlying responsible neurotechnology development"*, similarity
+search over excerpts retrieved **0 of 3** known-relevant passages at *k*=50, and
+required *k*=200 of 521 chunks — 38% of the entire corpus — to reach 2 of 3. An
+abstract query matches abstract framing language, not the specific provisions
+that actually answer it. Digests solve this by making each retrievable unit a
+dense, self-contained statement.
+
+**Line-aware chunking.** Chunks are packed on line boundaries rather than cut at
+fixed character offsets. Fixed-offset chunking had placed six unrelated
+definitions in one chunk, averaging its embedding across all six; the query
+"what is cognitive liberty?" then failed to retrieve the passage that literally
+defines it until *k*=50. After the fix, it retrieves at *k*=4.
+
+**Jurisdiction filtering.** Every chunk carries a jurisdiction. Retrieval is
+restricted to `Global` plus whatever the user selects, so EU regulation cannot
+shape an answer for a company not subject to it.
+
+### Digests
+
+Digests are the mechanism that makes broad questions answerable. Each document
+is read once, ahead of time, and reduced to a list of the statements it makes;
+those statements are stored as `summary` chunks.
+
+Two properties are deliberate. First, digest generation is a **separate,
+explicit command**, never part of startup — it costs tens of minutes to hours of
+CPU inference per document, and a colleague's first launch must not hang on it.
+Second, digests are **files committed to the repository**, not merely rows in
+the vector store. They therefore survive the vector store being rebuilt, ship
+with the application so nobody regenerates them, and can be produced by any
+model — including a frontier model via a web interface, which is how the
+current corpus digests were produced.
+
+That second property was learned the hard way: an early metadata migration
+wiped the collection and destroyed hours of generated digests, because they
+existed only inside Chroma. File-backed digests make that failure
+unreachable.
+
+### Guardrails
+
+"Guardrails" here means a set of constraints on what the system will assert,
+not a separate moderation library.
+
+- **Grounding instruction.** The system prompt restricts answers to the
+  supplied context and requires source attribution. It also, deliberately,
+  instructs the model *not* to hedge when the context does support a conclusion
+  — an earlier, stricter version caused the model to refuse questions it could
+  actually answer.
+- **Refusal.** Questions the corpus cannot support are declined. This is
+  measured as a first-class test case, not assumed.
+- **Determinism.** `temperature=0` and a fixed seed.
+- **Jurisdictional scoping**, as above.
+- **Visible routing.** The mode actually used is displayed with each answer, so
+  an automatic misroute is visible rather than silently producing a worse
+  answer.
+- **Graceful degradation.** A broad question asked before digests exist falls
+  back to excerpts *and says so*, rather than answering from an empty context.
+
+### Local storage and privacy
+
+All state is local: documents on disk, vectors in a Docker volume, models in a
+second volume, conversation history in browser session state only and never
+persisted to the vector store. After the one-time model download, the stack
+requires no network access.
+
+This is a functional requirement rather than a stance. The questions a company
+asks an ethics tool — about a specific partner, a contemplated use case, a
+regulatory exposure — are among the more sensitive things it could transmit.
+
+### Containerization
+
+Three services under Docker Compose: `app` (Streamlit), `chroma`, and `ollama`.
+Named volumes persist models and vectors; `data/documents` is bind-mounted so
+documents can be added from the host. Models are pulled automatically on first
+run, so `docker compose up --build` is the only command a new user issues.
+
+### Frontend
+
+A single-page Streamlit chat interface. The sidebar lists indexed documents by
+title, grouped by jurisdiction, with a selector for where the user operates.
+Answers stream token-by-token, followed by the mode used, the retrieved sources,
+and a copy-to-clipboard control for pasting into the user's own documents.
+
+# Evaluation {#sec-evaluation}
+
+## Yardstick
+
+Evaluation is deliberately split by *stage*, because a drop in end-to-end
+answer quality is otherwise unattributable — retrieval and generation fail for
+different reasons and have different remedies.
+
+| Layer | What it measures | Cost | Where |
+|---|---|---|---|
+| Retrieval eval | Does the known-correct passage reach the model at all? | Seconds, no LLM | `evals/retrieval.py` |
+| Answer eval | Is the answer correct, per case-specific criteria? | Minutes | `evals/run.py` |
+| Regression tests | Does the pipeline still behave? | ~5 min, small model | `tests/` |
+
+The gold dataset lives in `evals/dataset.py` and is the single source of truth;
+graders live in `evals/graders.py`. Both runners consume the same definitions,
+so a regression test and an eval score cannot disagree about what "correct"
+means. Every expected answer was verified against the document text before being
+recorded.
+
+Three grader types are used. `refusal` checks that an unanswerable question is
+declined. `contains` checks that required content appears, with synonym groups
+so that phrasing is not over-constrained. `judge` asks a second model, one
+rubric item at a time, whether the answer conveys a specific principle — a
+narrow binary question a smaller model can answer reliably, unlike an
+open-ended "is this good?".
+
+## Results by Mode
+
+| Case | Grader | Mode | Result | Note |
+|---|---|---|:--:|---|
+| `cake-refusal` | refusal | Question answering | **PASS** | Correctly declines; no cake document indexed |
+| `time-off-right` | contains | Question answering | **PASS** | Cites UDHR Article 24 |
+| `oecd-due-regard` | contains | Question answering | **FAIL** | Retrieval defect — see @sec-failures |
+| `cognitive-liberty` | contains | Question answering | **PASS** | Exact definition returned |
+| `neural-data` | contains | Question answering | **PASS** | Definition with all required elements |
+| `equitable-access` | contains | Question answering | **PASS** | Names LMICs explicitly |
+| `broad-principles` | judge | Broad principles | **PASS** | 14/14 rubric coverage |
+
+: End-to-end results, seven gold cases, chat model `gpt-oss:20b`. {#tbl-results}
+
+**Question-answering mode: 5 of 6.** Specific factual questions are reliably
+answered from verbatim excerpts at *k*=4 — the corpus is searched at low cost
+and the correct passage is returned.
+
+**Broad-principles mode: 14 of 14.** The open synthesis question — the one the
+system was least able to answer before digests existed — now scores full marks
+against an independent judge on a rubric of fourteen principles the corpus
+states. For scale, the same question answered by naive retrieval covered
+roughly a third of them.
+
+## Common Failure Modes {#sec-failures}
+
+**Retrieval loses to boilerplate.** The one reproducible failure,
+`oecd-due-regard`, asks what societal values the OECD document says should be
+shown due regard. The answer is one clause of principle 1(d). The query names
+the document — "the OECD document" — and that phrase matches the OECD's *front
+and back matter* far more strongly than its provisions. All six top-ranked
+chunks are the "About the OECD" section, citation lists, and the Compendium
+blurb. The provision never enters the context.
+
+This failure reproduces **identically across four different chat models**, which
+is the strongest available evidence that it is a retrieval defect rather than a
+reasoning one. The remedy is to strip boilerplate sections at ingestion — now
+straightforward, since the markdown conversion gave every document real
+headings.
+
+**Grader brittleness can masquerade as system failure.** An initial scorecard
+read 4 of 7. Two of those three failures were defects in the *graders*: the
+chat model wrote "self‑determination" with a non-breaking hyphen, defeating an
+ASCII substring match on an answer that was exactly correct; and it refused the
+cake question with a phrasing absent from the refusal-phrase list. Both were
+real bugs, but in the measuring instrument. This is recorded here because the
+failure mode is insidious: an eval that under-reports looks like diligence.
+
+**Determinism is behavioural, not bit-exact.** At `temperature=0` the model
+makes the same answer-versus-refuse decision every time, but token-identical
+output is not achievable: multithreaded floating-point reductions in the
+inference backend are non-associative, so near-tied logits can flip between
+runs. The regression tests assert the former and not the latter.
+
+**More context is not monotonically better.** Retrieval recall plateaus between
+*k*=8 and *k*=30 on this corpus — every chunk past the eighth adds cost without
+adding evidence. Measured end-to-end, *k*=30 produced a *less* complete answer
+than *k*=12, consistent with the "lost in the middle" effect [@liu2023lostmiddle].
+This is why the modes retrieve 4 and 12 chunks rather than as many as fit.
+
+**Corpus growth dilutes broad retrieval.** With seven documents' digests
+competing, the broad case needs a larger *k* to surface the same passages it
+found when two documents were indexed. The graded answer still scored 14/14, so
+this has not yet cost quality — but it is a scaling pressure to watch.
+
+## Trade-offs {#sec-tradeoffs}
+
+| Model | Size (GB) | Adjusted pass | Broad coverage | Total time (s) |
+|---|--:|:--:|:--:|--:|
+| `gpt-oss:20b` *(default)* | 13.0 | 6/7 | **14/14** | 772 |
+| `mistral-nemo:12b` | 7.1 | 5/7 | 13/14 | 713 |
+| `llama3:8b` | 4.7 | 5/7 | 10/14 | 535 |
+| `gemma3:4b` | 3.3 | 5/7 | 12/14 | **306** |
+
+: Chat model comparison across the full seven-case gold set. "Adjusted" corrects only for confirmed grader gaps, not genuine content misses. {#tbl-models}
+
+**Model size versus latency.** `gemma3:4b` runs the full suite in 40% of the
+time of `gpt-oss:20b` and still reaches 12 of 14 on broad synthesis. The
+default remains `gpt-oss:20b` because grounding fidelity is the system's
+purpose, but on constrained hardware the smaller model is a defensible choice —
+and notably, it fails nowhere that `gpt-oss:20b` does not also fail.
+
+**CPU inference is the binding constraint.** With no GPU, answers take tens of
+seconds to a few minutes. Thread count was tested directly and is *not* a
+usable lever: forcing all sixteen logical cores was 2.1× *slower* than the
+runtime's own auto-detection, because the two SMT threads per physical core
+contend for the same execution units. There is no free configuration win here.
+
+**Digest generation cost versus coverage.** Digests are what make broad
+questions work, and they are expensive: the EU AI Act alone was estimated at
+roughly thirteen hours of local CPU inference. The resolution was to decouple
+generation from the application — digests are portable files that can be
+produced anywhere, by any model, and committed. Local generation remains
+supported for users who cannot use an external model, at a cost in time rather
+than in capability.
+
+**Local-only versus quality.** Running a 20B-parameter model on a laptop CPU
+costs real answer quality relative to a frontier model. This is accepted
+deliberately: the confidentiality of the questions is the system's reason for
+existing, and an architecture that sent them elsewhere would not be the same
+product.
+
+**Multi-query retrieval: a rejected approach.** Decomposing a broad question
+into targeted sub-queries was implemented and measured. It produced no recall
+improvement, ran roughly 400× slower than single-query retrieval, and generated
+sub-queries containing vocabulary absent from the corpus. It is retained in the
+codebase but disabled by default. It is recorded here because the negative
+result is informative: the fix for broad questions was better *source
+material* (digests), not cleverer querying.
+
+# Appendix: Corpus
+
+| Instrument | Jurisdiction | Adopted |
+|---|---|--:|
+| Universal Declaration of Human Rights [@un1948udhr] | Global | 1948 |
+| UN Guiding Principles on Business and Human Rights [@un2011guiding] | Global | 2011 |
+| OECD Recommendation on Responsible Innovation in Neurotechnology [@oecd2019neurotech] | Global | 2019 |
+| UNESCO Recommendation on the Ethics of Neurotechnology [@unesco2025neurotech] | Global | 2025 |
+| EU General Data Protection Regulation (GDPR) [@eu2016gdpr] | European Union | 2016 |
+| EU Artificial Intelligence Act [@eu2024aiact] | European Union | 2024 |
+| California Consumer Privacy Act (CCPA) [@ccpa2018] | California | 2018 |
+
+: Indexed corpus. Global instruments always apply; jurisdiction-specific instruments are opt-in. {#tbl-corpus}
+
+The indexed corpus comprises **3,630 content chunks** and **173 digest chunks**
+across seven instruments. All seven are stored as markdown; conversion from PDF
+was necessary rather than cosmetic, as extraction from the Official Journal
+typesetting of the GDPR corrupted roughly one word in four
+(`ar ticle`, `p aragraph`, `author ised`), which would have made that document
+effectively unsearchable.
+
+# References
+
+::: {#refs}
+:::
