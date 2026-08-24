@@ -99,7 +99,13 @@ def main() -> None:
 
     if args.model:
         ollama_client.CHAT_MODEL = args.model
-    ollama_client.ensure_models()
+    # RUNTIME_MODELS is a tuple captured once at import time from the
+    # then-current CHAT_MODEL, so ensure_models()'s default argument would
+    # still point at the original model after the override above and never
+    # pull the requested one. Pass the live values explicitly instead.
+    ollama_client.ensure_models(
+        models=(ollama_client.CHAT_MODEL, ollama_client.EMBED_MODEL, ollama_client.CLASSIFIER_MODEL)
+    )
 
     cases = cases_for(current_corpus())
     if args.case:
