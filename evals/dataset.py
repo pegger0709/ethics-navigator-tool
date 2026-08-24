@@ -19,6 +19,8 @@ UNESCO = "UNESCO_397812eng.pdf"
 OECD = "OECD-LEGAL-0457-en.pdf"
 UDHR = "UN_declaration_HumanRights.pdf"
 CAKE = "chocolate-cake-A4.pdf"
+EU_GDPR = "EU_GDPR.pdf"
+CCPA = "ccpa_statute.pdf"
 
 MODE_QA = "Question answering"
 MODE_BROAD = "Broad principles"
@@ -42,6 +44,13 @@ class Case:
     # Documents whose presence would invalidate the case (refusal cases).
     absent_docs: tuple[str, ...] = ()
     rubric: tuple[str, ...] = field(default=())
+    # Jurisdictions active for this query, mirroring the sidebar selection.
+    # None means "let retriever.answer() use its own default" (currently: no
+    # override, which resolves to global instruments only — the same as a
+    # user who has selected nothing). An explicit () states that intent
+    # directly so a jurisdiction-scoping case stays correct even if the
+    # retriever's own default ever changes.
+    jurisdictions: tuple[str, ...] | None = None
 
 
 # Principles the corpus actually states. Used as the judge rubric for the
@@ -158,6 +167,29 @@ CASES: tuple[Case, ...] = (
         ),
         gold_chunks=("Equitable access to evidence",),
         needs_docs=(UNESCO,),
+    ),
+    Case(
+        id="gdpr-without-eu-selected",
+        question="What are the conditions for consent to be valid under the GDPR?",
+        grader="refusal",
+        expected_mode=MODE_QA,
+        # Deliberately unselected: simulates a user who has not opted into the
+        # EU jurisdiction. GDPR content exists in the corpus (needs_docs below
+        # requires it indexed) but must be filtered out of retrieval, so the
+        # only honest answer is a refusal — not an answer drawn from whichever
+        # global instrument happens to rank highest.
+        jurisdictions=(),
+        needs_docs=(EU_GDPR,),
+    ),
+    Case(
+        id="ccpa-without-california-selected",
+        question=(
+            "What is the CCPA's right to opt out of the sale of personal information?"
+        ),
+        grader="refusal",
+        expected_mode=MODE_QA,
+        jurisdictions=(),
+        needs_docs=(CCPA,),
     ),
     Case(
         id="broad-principles",

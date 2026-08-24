@@ -5,10 +5,10 @@ are defined for end-to-end evaluation — evals/dataset.py holds the cases,
 evals/graders.py holds the grading, this file only orchestrates and reports.
 Anything that isn't in dataset.py isn't an official yardstick, it's opinion.
 
-Slow and deliberate by design: it calls the real chat model once per case
-(twice for the judge case, which also makes one judge call per rubric item).
-For a fast, LLM-free check of the retrieval stage alone, use
-``python -m evals.retrieval`` instead.
+Slow and deliberate by design: it calls the real chat model once per case,
+plus one judge call per refusal case and one judge call per rubric item for
+the judge-graded case. For a fast, LLM-free check of the retrieval stage
+alone, use ``python -m evals.retrieval`` instead.
 
     python -m evals.run
     python -m evals.run --model llama3.1:8b
@@ -40,7 +40,9 @@ def current_corpus() -> set[str]:
 def run_case(case) -> dict:
     """Answer one gold question through the real pipeline and grade it."""
     started = time.time()
-    stream, chunks, meta = retriever.answer(case.question, mode=case.expected_mode)
+    stream, chunks, meta = retriever.answer(
+        case.question, mode=case.expected_mode, jurisdictions=case.jurisdictions
+    )
     response = "".join(stream)
     elapsed = time.time() - started
 

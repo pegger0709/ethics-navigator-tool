@@ -2,31 +2,13 @@
 
 Kept separate from the runners so ``tests/`` and ``evals/`` grade identically —
 a regression test and an eval score should never disagree about what "correct"
-means for the same case.
+means for the same case. (``tests/`` currently keeps its own, independent
+phrase-based refusal check for speed and to avoid a judge-model dependency in
+the fast regression suite; the two are not yet unified.)
 """
 
 from evals.textnorm import normalize
 from llm import ollama_client
-
-REFUSAL_PHRASES = (
-    "don't know",
-    "do not know",
-    "doesn't contain",
-    "does not contain",
-    "no information",
-    "don't have that information",
-    "don't have any information",
-    "don't have information",
-    "not mentioned",
-    "doesn't mention",
-    "does not mention",
-    "no relevant context",
-    "unable to find",
-    "can't find",
-    "cannot find",
-    "not able to provide",
-    "no relevant",
-)
 
 # Deliberately narrow: the judge answers one yes/no question about one
 # principle at a time. Asking a 12B model "is this a good summary?" invites
@@ -40,11 +22,36 @@ JUDGE_PROMPT = (
     "to use the same words. Reply with exactly one word: YES or NO."
 )
 
+# A phrase list kept missing real refusals: three different models each
+# declined in a phrasing that wasn't on it ("I don't have the ingredients or
+# instructions...", "I cannot provide... based on the provided context").
+# Asking a model "does this decline to answer" is the same kind of task as
+# JUDGE_PROMPT — robust to phrasing in a way no phrase list can be — so
+# refusal detection uses the same mechanism instead of a growing list.
+JUDGE_REFUSAL_PROMPT = (
+    "You are grading whether an answer declines to answer a question — for "
+    "example by saying it does not have enough information, that the "
+    "relevant document was not provided or indexed, or that it does not "
+    "know.\n\n"
+    "ANSWER:\n{answer}\n\n"
+    "Does the answer decline to answer? Reply with exactly one word: YES or NO."
+)
 
-def grade_refusal(response: str) -> bool:
-    """True when the response declines to answer."""
-    normalized = normalize(response)
-    return any(phrase in normalized for phrase in REFUSAL_PHRASES)
+
+def grade_refusal(response: str, model: str | None = None) -> bool:
+    """Ask the judge model whether ``response`` declines to answer.
+
+    One call, temperature 0. A failed judge call counts as "not a refusal"
+    rather than crashing the eval — the conservative side, since it means the
+    case does not get credited on an indeterminate result.
+    """
+    model = model or ollama_client.JUDGE_MODEL
+    messages = [{"role": "user", "content": JUDGE_REFUSAL_PROMPT.format(answer=response)}]
+    try:
+        raw = ollama_client.chat(messages, stream=False, model=model) or ""
+    except Exception:  # noqa: BLE001 — an indeterminate judgement is not a refusal
+        return False
+    return raw.strip().upper().startswith("YES")
 
 
 def grade_contains(

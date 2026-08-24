@@ -77,11 +77,19 @@ SYSTEM_PROMPT = (
 
 
 def _build_where(kind: str | None, jurisdictions: list[str] | None) -> dict | None:
-    """Assemble a Chroma metadata filter from the active kind and jurisdictions."""
+    """Assemble a Chroma metadata filter from the active kind and jurisdictions.
+
+    Chroma rejects an empty ``$in`` list outright, so an empty jurisdictions
+    list is treated the same as ``None``: no filter, rather than a crash. The
+    "nothing selected still searches Global" behaviour lives one level up, in
+    :func:`active_jurisdictions` — every caller that means it should route
+    through there first, as :func:`answer` does. This is a safety net for a
+    direct call, not a replacement for that normalization.
+    """
     clauses: list[dict] = []
     if kind:
         clauses.append({"kind": kind})
-    if jurisdictions is not None:
+    if jurisdictions:
         clauses.append({"jurisdiction": {"$in": list(jurisdictions)}})
     if not clauses:
         return None
