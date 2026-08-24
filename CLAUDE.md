@@ -84,7 +84,7 @@ ethics-navigator-tool/
 
 ## Invariants
 
-- Ollama runs as a local service; host and model names are constants in `llm/ollama_client.py` (env-overridable). Chat `gpt-oss:20b`, embed `nomic-embed-text`, classifier `llama3.2`, judge `gemma4:12b` (evals only). All model names live here only.
+- Ollama runs as a local service; host and model names are constants in `llm/ollama_client.py` (env-overridable). Chat `gemma3:4b` (chosen for speed on CPU — see report/), embed `nomic-embed-text`, classifier `llama3.2`, judge `gpt-oss:20b` (evals only — no latency constraint off the user-facing path, so use the largest model). All model names live here only.
 - **Never wipe the Chroma collection to change metadata.** Digest chunks (`kind="summary"`) live in the same collection as content chunks and cost hours of CPU inference to rebuild, while `ingest()` only restores content. Use `collection.update(ids=..., metadatas=...)` to migrate metadata in place.
 - Chunks carry `source`, `kind` (`content` | `summary`) and `jurisdiction`. Specific questions retrieve `content`, broad ones retrieve `summary`; retrieval is always filtered to the global instruments plus the user's selected jurisdictions (`rag/corpus.py`).
 - Chroma client is env-driven (`rag/embeddings.py`): `PersistentClient(path=chroma_db/)` locally, `HttpClient(host, port)` when `CHROMA_HOST` is set (the Docker stack). Never use the in-memory client.

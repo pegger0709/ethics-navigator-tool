@@ -12,16 +12,24 @@ from ollama import Client
 load_dotenv()  # idempotent; loads .env if present
 
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
-# Answers user questions. gpt-oss:20b is a mixture-of-experts model (~3.6B
-# active of 20B total), so it is far faster than its size suggests.
-CHAT_MODEL = os.getenv("CHAT_MODEL", "gpt-oss:20b")
+# Answers user questions. This is the one model every user waits on, so it is
+# picked for speed on CPU-only hardware rather than raw capability: measured
+# against gpt-oss:20b on the eval suite, gemma3:4b runs the full case set in
+# 40% of the time and fails nowhere gpt-oss:20b doesn't also fail (see
+# report/ethics-navigator-report.qmd, "Trade-offs"). Letting users pick their
+# own chat model was considered and rejected — it invites picking the largest
+# one and then being frustrated by the latency, which is exactly the failure
+# mode this default avoids.
+CHAT_MODEL = os.getenv("CHAT_MODEL", "gemma3:4b")
 EMBED_MODEL = os.getenv("EMBED_MODEL", "nomic-embed-text")
 # Routes each question to an answer mode. A two-way classification is easy, so
 # this runs on a small model to keep the added per-question latency small.
 CLASSIFIER_MODEL = os.getenv("CLASSIFIER_MODEL", "llama3.2")
-# Grades answers during evaluation only. Deliberately a different family from
-# CHAT_MODEL: a model grading its own output shares its blind spots.
-JUDGE_MODEL = os.getenv("JUDGE_MODEL", "gemma4:12b")
+# Grades answers during evaluation only, never on the user-facing path, so
+# there is no latency reason to hold back: use the largest model available.
+# Deliberately a different family from CHAT_MODEL regardless of size — a model
+# grading its own output shares its blind spots.
+JUDGE_MODEL = os.getenv("JUDGE_MODEL", "gpt-oss:20b")
 CHAT_TEMPERATURE = float(os.getenv("CHAT_TEMPERATURE", "0"))
 CHAT_SEED = int(os.getenv("CHAT_SEED", "42"))
 
