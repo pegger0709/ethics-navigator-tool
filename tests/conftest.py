@@ -29,10 +29,12 @@ P2 = "How long should I bake a chocolate cake?"
 SUBSETS = [(), (D1,), (D2,), (D1, D2)]
 
 # The suite checks pipeline behaviour — determinism, grounding, refusal — not
-# the quality of any one model, so it runs against a small fast model. The
-# app's default (llama3.1:8b) answers better but is far too slow to test with:
-# this same suite took ~12 hours against it versus minutes against a 3B model.
-TEST_CHAT_MODEL = os.getenv("TEST_CHAT_MODEL", "llama3.2")
+# the quality of any one model. This once pinned a small model because the app
+# default was llama3.1:8b, which took ~12 hours to test against; now that the
+# default is itself small and fast, the pin tracks it instead, so the tests
+# exercise what actually ships and a dev machine needs one fewer model. The
+# override remains for bisecting a behaviour change across models.
+TEST_CHAT_MODEL = os.getenv("TEST_CHAT_MODEL", ollama_client.CHAT_MODEL)
 
 
 def subset_id(subset: tuple[str, ...]) -> str:

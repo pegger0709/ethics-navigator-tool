@@ -22,9 +22,12 @@ OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
 # mode this default avoids.
 CHAT_MODEL = os.getenv("CHAT_MODEL", "gemma3:4b")
 EMBED_MODEL = os.getenv("EMBED_MODEL", "nomic-embed-text")
-# Routes each question to an answer mode. A two-way classification is easy, so
-# this runs on a small model to keep the added per-question latency small.
-CLASSIFIER_MODEL = os.getenv("CLASSIFIER_MODEL", "llama3.2")
+# Routes each question to an answer mode. This defaults to CHAT_MODEL rather
+# than a second small model: a two-way classification is easy enough that the
+# workhorse handles it, and reusing it means one fewer multi-GB download and no
+# swapping a second model in and out of RAM per question — which matters most
+# on the modest hardware this is meant to run on. Override to split the roles.
+CLASSIFIER_MODEL = os.getenv("CLASSIFIER_MODEL", CHAT_MODEL)
 # Grades answers during evaluation only, never on the user-facing path, so
 # there is no latency reason to hold back: use the largest model available.
 # Deliberately a different family from CHAT_MODEL regardless of size — a model
@@ -35,8 +38,8 @@ CHAT_SEED = int(os.getenv("CHAT_SEED", "42"))
 
 # Models the app itself needs at runtime. JUDGE_MODEL is excluded on purpose —
 # it is only used by evals/, and colleagues running the app should not have to
-# download it.
-RUNTIME_MODELS = (CHAT_MODEL, EMBED_MODEL, CLASSIFIER_MODEL)
+# download it. Deduplicated because CLASSIFIER_MODEL defaults to CHAT_MODEL.
+RUNTIME_MODELS = tuple(dict.fromkeys((CHAT_MODEL, EMBED_MODEL, CLASSIFIER_MODEL)))
 
 
 def get_client() -> Client:
@@ -69,13 +72,18 @@ def ensure_models(models: tuple[str, ...] = RUNTIME_MODELS, client: Client | Non
     """
     client = client or get_client()
     installed = _installed_models(client)
-    for model in models:
+    # dict.fromkeys: callers may legitimately pass the same model twice (the
+    # classifier and chat roles share one by default), and ``installed`` is a
+    # snapshot taken before the loop, so a duplicate would otherwise be pulled
+    # a second time rather than recognised as already present.
+    for model in dict.fromkeys(models):
         if model not in installed:
             # Stream the pull: a non-streaming pull holds one connection open
             # for the whole (multi-GB) download and gets dropped before it
             # finishes. Interrupted pulls resume where they left off.
             for _ in client.pull(model, stream=True):
                 pass
+            installed.add(model)
 
 
 def chat(

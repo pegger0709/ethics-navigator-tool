@@ -1,27 +1,53 @@
 """Integration tests for the RAG pipeline: determinism, grounding, no hallucination."""
 
+import re
+
 import pytest
 
 from tests.conftest import D1, D2, P1, P2, SUBSETS, subset_id
 
-REFUSAL_PHRASES = [
-    "don't know",
-    "do not know",
-    "doesn't contain",
-    "does not contain",
-    "no information",
-    "not mentioned",
-    "doesn't mention",
-    "does not mention",
+# Models phrase refusals in far more ways than a list of literal substrings can
+# track. This suite was broken once by "does not provide information", which no
+# literal covered even though four near-identical ones were listed — so match
+# the *shape* of a refusal instead of its exact wording.
+#
+# Two shapes cover what this pipeline actually produces. Both are anchored
+# deliberately: an unanchored "does not <verb>" would also fire on a genuine
+# answer that happens to carry a caveat ("Article 24 does not define leisure
+# precisely, but everyone has the right to rest"), which must NOT read as a
+# refusal — the answer-quality tests below assert exactly that.
+#
+# evals/graders.py solves this same problem with an LLM judge. That is
+# deliberately not reused here: pytest is the fast regression gate and must not
+# depend on a second model being pulled.
+_SOURCE = r"(?:context|document|text|excerpt|passage|recipe|source|information)s?"
+_NEGATION = r"(?:does not|doesn't|do not|don't|did not|didn't|cannot|can't|is not|isn't)"
+_TELLING = (
+    r"(?:contain|mention|provide|include|specify|state|discuss|detail|address"
+    r"|cover|define|describe|have|know|find|say)"
+)
+REFUSAL_PATTERN = re.compile(
+    # "The context does not contain / provide information about ..."
+    rf"\b{_SOURCE}\b[\w\s,'\"-]{{0,40}}?\b{_NEGATION}\b[\w\s,]{{0,40}}?\b{_TELLING}\b"
+    # "I cannot provide ...", "I don't have that information"
+    rf"|\b(?:i|we)\b\s+(?:{_NEGATION}|am unable to|are unable to)\s"
+    rf"[\w\s,]{{0,30}}?\b{_TELLING}\b"
+)
+
+# Stock refusals that do not fit either shape above.
+REFUSAL_PHRASES = (
     "no relevant context",
+    "no information",
+    "insufficient information",
+    "not mentioned",
     "unable to find",
-    "can't find",
-    "cannot find",
-]
+)
 
 
 def is_refusal(response: str) -> bool:
     lowered = response.lower()
+    if REFUSAL_PATTERN.search(lowered):
+        return True
     return any(phrase in lowered for phrase in REFUSAL_PHRASES)
 
 
