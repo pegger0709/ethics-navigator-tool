@@ -5,7 +5,12 @@ import re
 
 from llm import ollama_client
 from rag.corpus import active_jurisdictions, display_name
-from rag.embeddings import KIND_CONTENT, KIND_SUMMARY, get_collection
+from rag.embeddings import (
+    KIND_CONTENT,
+    KIND_SUMMARY,
+    get_collection,
+    get_session_collection,
+)
 
 DEFAULT_NUM_CTX = 2048  # Ollama's own default, used as a floor
 RESPONSE_MARGIN_TOKENS = 1024  # headroom for the model's own answer
@@ -96,27 +101,13 @@ def _build_where(kind: str | None, jurisdictions: list[str] | None) -> dict | No
     return clauses[0] if len(clauses) == 1 else {"$and": clauses}
 
 
-def retrieve(
-    query: str,
-    k: int = 4,
-    kind: str | None = KIND_CONTENT,
-    jurisdictions: list[str] | None = None,
-) -> list[dict]:
-    """Return the top-``k`` chunks for ``query`` as ``{id, text, source, distance}`` dicts.
-
-    ``kind`` selects which pool to search: verbatim excerpts (the default) for
-    specific questions, or pre-built digests for broad ones. Passing ``None``
-    searches both. ``jurisdictions`` limits results to documents that apply
-    where the user operates; ``None`` means no jurisdiction filter.
-    """
-    collection = get_collection()
+def _query_collection(collection, query: str, k: int, where: dict | None) -> list[dict]:
+    """Run one similarity query and shape the result as chunk dicts."""
     count = collection.count()
     if count == 0:
         return []
     results = collection.query(
-        query_texts=[query],
-        n_results=min(k, count),
-        where=_build_where(kind, jurisdictions),
+        query_texts=[query], n_results=min(k, count), where=where
     )
     ids = results.get("ids", [[]])[0]
     documents = results.get("documents", [[]])[0]
@@ -124,14 +115,50 @@ def retrieve(
     distances = results.get("distances", [[]])[0]
     chunks = []
     for chunk_id, text, meta, distance in zip(ids, documents, metadatas, distances):
+        meta = meta or {}
         chunks.append(
             {
                 "id": chunk_id,
                 "text": text,
-                "source": (meta or {}).get("source", "unknown"),
+                "source": meta.get("source", "unknown"),
                 "distance": distance,
+                "uploaded": "session_id" in meta,
             }
         )
+    return chunks
+
+
+def retrieve(
+    query: str,
+    k: int = 4,
+    kind: str | None = KIND_CONTENT,
+    jurisdictions: list[str] | None = None,
+    session_id: str | None = None,
+) -> list[dict]:
+    """Return the top-``k`` chunks for ``query`` as chunk dicts.
+
+    ``kind`` selects which pool of the reference corpus to search: verbatim
+    excerpts (the default) for specific questions, or pre-built digests for
+    broad ones. Passing ``None`` searches both. ``jurisdictions`` limits corpus
+    results to documents that apply where the user operates; ``None`` means no
+    jurisdiction filter.
+
+    When ``session_id`` is given, documents uploaded in that session are
+    searched too and merged in by distance. They are treated differently from
+    corpus documents on purpose: no jurisdiction filter, because the user's own
+    material is always in scope rather than being an instrument that binds in
+    some places; and always searched as content, because a document that exists
+    only for the length of a session never has a digest built for it.
+    """
+    chunks = _query_collection(
+        get_collection(), query, k, _build_where(kind, jurisdictions)
+    )
+    if session_id:
+        chunks += _query_collection(
+            get_session_collection(), query, k, {"session_id": session_id}
+        )
+        chunks.sort(key=lambda chunk: chunk["distance"])
+        chunks = chunks[:k]
     return chunks
 
 
@@ -228,6 +255,7 @@ def retrieve_for(
     multi_query: bool = False,
     kind: str | None = KIND_CONTENT,
     jurisdictions: list[str] | None = None,
+    session_id: str | None = None,
 ) -> tuple[list[dict], list[str]]:
     """Retrieve using the configured strategy. Returns ``(chunks, subqueries)``.
 
@@ -236,7 +264,12 @@ def retrieve_for(
     """
     if multi_query:
         return multi_retrieve(query, k=k)
-    return retrieve(query, k=k, kind=kind, jurisdictions=jurisdictions), []
+    return (
+        retrieve(
+            query, k=k, kind=kind, jurisdictions=jurisdictions, session_id=session_id
+        ),
+        [],
+    )
 
 
 def build_messages(query: str, chunks: list[dict], history: list[dict]) -> list[dict]:
@@ -299,14 +332,16 @@ def answer(
     k: int | None = None,
     multi_query: bool = False,
     jurisdictions: list[str] | None = None,
+    session_id: str | None = None,
 ):
     """Retrieve context and stream an answer.
 
     ``mode`` selects which pool to answer from; when omitted it is chosen
     automatically by :func:`classify_mode`. ``jurisdictions`` are the
     place-specific regimes the user operates under; global instruments are
-    always included alongside them. ``k`` and ``multi_query`` override the
-    mode's defaults for experiments.
+    always included alongside them. ``session_id`` brings that session's
+    uploaded documents into scope alongside the corpus. ``k`` and
+    ``multi_query`` override the mode's defaults for experiments.
 
     Returns ``(token_stream, chunks, meta)``. ``meta`` reports the ``mode``
     actually used — the UI shows it, so an automatic misroute is visible rather
@@ -325,12 +360,13 @@ def answer(
         multi_query=multi_query,
         kind=preset["kind"],
         jurisdictions=allowed,
+        session_id=session_id,
     )
     # A broad question before digests are built would otherwise silently answer
     # from nothing; fall back to excerpts rather than returning an empty context.
     if not chunks and preset["kind"] == KIND_SUMMARY:
         chunks, subqueries = retrieve_for(
-            query, k=k, kind=KIND_CONTENT, jurisdictions=allowed
+            query, k=k, kind=KIND_CONTENT, jurisdictions=allowed, session_id=session_id
         )
         mode = f"{mode} (no summaries built; used excerpts)"
 

@@ -8,7 +8,9 @@ services:
       CHROMA_HOST: chroma
       CHROMA_PORT: "8000"
     volumes:
-      # Documents added via the UI are saved here and persist across restarts.
+      # The fixed reference corpus, mounted so it can be curated from the host.
+      # Documents uploaded through the UI deliberately do NOT land here: they go
+      # to the ephemeral session store and are never written to disk.
       - ./data/documents:/app/data/documents
     depends_on:
       - ollama

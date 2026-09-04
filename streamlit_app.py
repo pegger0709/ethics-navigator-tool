@@ -1,5 +1,7 @@
 """Ethics Navigator — a private, local RAG chatbot over your own documents."""
 
+import uuid
+
 import streamlit as st
 
 from llm import ollama_client
@@ -10,11 +12,15 @@ st.set_page_config(page_title="Ethics Navigator", page_icon="🧭", layout="wide
 
 @st.cache_resource(show_spinner="Preparing the model (first run downloads it)…")
 def prepare() -> bool:
-    """One-time startup: ensure models are present and index any existing docs.
+    """One-time startup: purge stale uploads, ensure models, index the corpus.
 
-    Cached so it runs once per session rather than on every rerun. Returns True
-    on success; the caller surfaces failures (e.g. Ollama/Chroma unreachable).
+    Cached so it runs once per server process rather than on every rerun, which
+    is exactly the granularity the purge wants: anything left in the session
+    store belongs to a previous run of the app and must not survive into this
+    one. Returns True on success; the caller surfaces failures (e.g.
+    Ollama/Chroma unreachable).
     """
+    embeddings.purge_session_store()
     ollama_client.ensure_models()
     embeddings.ingest()
     return True
@@ -32,8 +38,24 @@ except Exception as exc:  # noqa: BLE001 — surface any startup failure to the 
 
 if "messages" not in st.session_state:
     st.session_state["messages"] = []
+if "session_id" not in st.session_state:
+    st.session_state["session_id"] = uuid.uuid4().hex
+session_id = st.session_state["session_id"]
+
+# Closing a tab never reaches the server, so uploads from an abandoned session
+# would otherwise sit in the store until the app restarts. Sweeping on every
+# rerun bounds that to SESSION_TTL_SECONDS.
+if backend_ready:
+    embeddings.sweep_expired_uploads()
 
 summaries_ready = backend_ready and summaries.summaries_available()
+
+
+def end_session() -> None:
+    """Drop every uploaded document and clear the conversation."""
+    embeddings.purge_session_store()
+    st.session_state["messages"] = []
+    st.session_state["session_id"] = uuid.uuid4().hex
 
 # --- Sidebar: document management + settings ---------------------------------
 with st.sidebar:
@@ -67,17 +89,34 @@ with st.sidebar:
 
     st.divider()
 
+    st.subheader("This session's documents")
+    st.caption(
+        "Read into memory, indexed, and discarded — never written to disk. "
+        "Removed automatically when you end the session, when the app "
+        "restarts, or after a period of inactivity."
+    )
+
+    session_sources = embeddings.list_session_sources(session_id) if backend_ready else []
+    if session_sources:
+        for source in session_sources:
+            st.markdown(f"- {corpus.display_name(source)}")
+
     with st.form("upload-form", clear_on_submit=True):
         uploaded = st.file_uploader(
-            "Add documents",
+            "Add documents for this session",
             type=["pdf", "txt", "md"],
             accept_multiple_files=True,
         )
-        submitted = st.form_submit_button("Add to knowledge base")
+        submitted = st.form_submit_button("Add to this session")
     if submitted and uploaded:
         with st.spinner("Indexing documents…"):
-            added = embeddings.ingest_uploads(uploaded)
+            embeddings.ingest_uploads(uploaded, session_id)
         st.rerun()
+
+    if session_sources or st.session_state["messages"]:
+        if st.button("🗑️ End session and delete documents"):
+            end_session()
+            st.rerun()
 
     st.divider()
     st.caption(
@@ -158,6 +197,7 @@ if prompt := st.chat_input("Ask a question…", disabled=not backend_ready):
                 mode=mode,
                 k=top_k,
                 jurisdictions=jurisdictions,
+                session_id=session_id,
             )
         response = st.write_stream(token_stream)
         st.caption(f"Answered in **{meta['mode']}** mode.")
@@ -173,7 +213,12 @@ if prompt := st.chat_input("Ask a question…", disabled=not backend_ready):
         if chunks:
             with st.expander(f"Sources ({len(chunks)})"):
                 for chunk in chunks:
-                    st.markdown(f"**{corpus.display_name(chunk['source'])}**")
+                    label = corpus.display_name(chunk["source"])
+                    # Uploaded material is not an authority in the way an
+                    # indexed instrument is; say which is which.
+                    if chunk.get("uploaded"):
+                        label += "  ·  _uploaded this session_"
+                    st.markdown(f"**{label}**")
                     st.caption(chunk["text"][:500] + ("…" if len(chunk["text"]) > 500 else ""))
         render_copy_button(response)
 
