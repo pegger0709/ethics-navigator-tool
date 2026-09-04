@@ -1,6 +1,6 @@
 ---
 title: "Ethics Navigator: A Local-First Retrieval System for Neuroethics Guidance"
-subtitle: "Design, architecture, and evaluation of the conversational successor to the rules-based Navigation Tool"
+subtitle: "Design, architecture, and evaluation of a conversational successor to a rules-based assessment tool"
 author: "Philip Egger"
 date: today
 format:
@@ -13,11 +13,14 @@ format:
   pdf:
     toc: true
     number-sections: true
+    include-in-header:
+      text: |
+        \usepackage{pdflscape}
 execute:
   echo: false
   warning: false
   message: false
-bibliography: references.bib
+bibliography: references-public.bib
 ---
 
 # Executive Summary
@@ -36,14 +39,14 @@ responsible-innovation principles, the UN Guiding Principles on Business and
 Human Rights, the Universal Declaration of Human Rights, and the
 jurisdiction-specific regimes of the EU and California.
 
-It is the successor to a rules-based Navigation Tool piloted at the Asilomar
-workshop in March 2026 [@asilomar2026workshop]. That earlier tool asked a fixed
-questionnaire and returned red flags. Workshop participants rejected it for
-rigidity: the questions felt "too academic, obvious, or leading", the scope was
-"too narrowly focused on partnerships", and it "doesn't feel like it fits into a
-real workflow". The most frequently requested replacement was, in participants'
-own words, an "interactive 'chatbot' type portal" and an "AI-Agent as process
-facilitator". This system is that pivot: from a fixed decision tree to a
+It is the successor to a rules-based assessment tool piloted at an external
+practitioner workshop in early 2026. That earlier tool asked a fixed
+questionnaire and returned red flags. Practitioners who tested it rejected it as
+too rigid: they found the questions academic and leading, the scope confined too
+narrowly to partnership review, and the whole exercise a poor fit for how they
+actually work. The most frequently requested replacement was a conversational
+interface — an assistant that could facilitate the process rather than
+administer a form. This system is that pivot: from a fixed decision tree to a
 grounded conversation over primary sources.
 
 The system runs entirely on the user's own machine. Documents, questions, and
@@ -81,16 +84,16 @@ the answer text, which stays fluent and well-attributed while being incomplete.
 ## Problem Statement
 
 A neurotechnology company faces a proliferation of ethical and regulatory
-guidance with, as the workshop framing put it, "unclear implementation
-pathways". The instruments are public, lengthy, and written for regulators
+guidance whose implementation pathways are, as practitioners put it, unclear.
+The instruments are public, lengthy, and written for regulators
 rather than founders. UNESCO's recommendation alone runs to over a hundred
 thousand characters across nine principles, seven values, and twelve areas of
 policy action; the EU AI Act is five times longer again.
 
 The practical question a founder asks is not "what does Article 9 say" but
 "what applies to *us*, and what must we actually do about it". Answering that
-today requires either in-house neuroethics expertise — which the workshop
-identified as absent in most companies — or expensive external counsel.
+today requires either in-house neuroethics expertise — which practitioner
+feedback identified as absent in most companies — or expensive external counsel.
 
 The system addresses a narrow, tractable slice of this: **making the primary
 sources directly interrogable in natural language, with answers grounded in and
@@ -99,12 +102,12 @@ attributed to the documents themselves.**
 ## Motivation
 
 The motivation is documented rather than assumed. The predecessor tool was
-tested by practitioners at the Asilomar workshop, and its shortcomings were
-recorded in structured feedback [@asilomar2026workshop].
+tested by practitioners at an external workshop, and its shortcomings were
+recorded in structured feedback.
 
 ::: {.callout-tip collapse="true"}
 ## Optional: chart the feedback themes
-The report currently reports the workshop themes as prose and a table, which
+The report currently reports the feedback themes as prose and a table, which
 needs no execution environment. To chart them instead, commit the exported
 response CSVs to `report/data/` and add a figure chunk along these lines — note
 this requires `jupyter` and `matplotlib`, which are deliberately *not* project
@@ -114,7 +117,7 @@ dependencies.
 import matplotlib.pyplot as plt
 import pandas as pd
 
-responses = pd.read_csv("data/asilomar_feedback.csv")
+responses = pd.read_csv("data/workshop_feedback.csv")
 # Code each free-text response against the theme list below, then:
 #   rigidity / binary scoring · wants dialogue or AI facilitator · workflow fit
 #   scope too narrow · Western regulatory framing · cannot replace humans
@@ -128,27 +131,26 @@ plt.tight_layout()
 Five criticisms were reported back to the room, and they map cleanly onto design
 requirements for a successor:
 
-| Workshop finding | Design consequence |
+| Feedback finding | Design consequence |
 |---|---|
-| Questions feel too academic, obvious, or leading | Let the user pose the question; do not script it |
+| Questions read as academic and leading | Let the user pose the question; do not script it |
 | UX friction, limited interaction options | Conversational interface, not a form |
 | EU/Western regulatory framing may not translate globally | Explicit jurisdiction selection; global instruments always in scope |
-| Scope too narrowly focused on partnerships | Answer any question the corpus can support |
-| Doesn't fit a real workflow | Run locally, answer on demand, no orchestration required |
+| Scope confined to partnership review | Answer any question the corpus can support |
+| Poor fit with day-to-day work | Run locally, answer on demand, no orchestration required |
 
-The free-text responses were more specific still. One table asked for "a more
-vector based overall tendence rather than a red flag for a not checked box";
-another for a shift "from yes no to text / process". A third argued the tool
-should "describe the potential risk exposure of the partnership" instead of
-emitting red flags at the end. Several converged independently on an AI
-facilitator that could "adapt to circumstances as ethical boundaries and
-technologies change".
+The free-text responses were more specific still. Several asked for graded or
+directional output in place of a binary checklist, and for prose and process
+rather than yes/no answers. Others argued the tool should characterise a
+partnership's risk exposure rather than emit red flags at the end. A number of
+respondents converged independently on an assistant able to adapt as ethical
+boundaries and technologies change.
 
 Two cautions from the same feedback are treated here as binding constraints
-rather than aspirations. First: "This tool doesn't replace the need for more
-education, collaboration, and experts (human)." Second: the tool should not
-"create new mechanisms where some already exist". The system is therefore
-scoped as a *reference instrument* — it surfaces and attributes what the
+rather than aspirations. First, that a tool of this kind does not remove the
+need for education, collaboration, and human expertise. Second, that it should
+not build new mechanisms where adequate ones already exist. The system is
+therefore scoped as a *reference instrument* — it surfaces and attributes what the
 governing documents say. It does not score partners, does not decide, and does
 not attempt to replace counsel or an ethics advisory board.
 
@@ -168,8 +170,7 @@ not attempt to replace counsel or an ethics advisory board.
 - User-supplied documents in addition to the shipped corpus.
 
 **Out of scope**, deliberately, and consistent with the predecessor tool's own
-stated boundaries (workshop slide 16) and the workshop's caution against
-over-reach:
+stated boundaries and the practitioner caution against over-reach:
 
 - Scoring, ranking, or red-flagging partners.
 - Standalone decision-making, or any output framed as a decision.
@@ -190,7 +191,12 @@ The system is three containers: a Streamlit front end, a Chroma vector store,
 and an Ollama runtime hosting the language models. Nothing else is required,
 and no network egress occurs after the initial model download.
 
+```{=latex}
+\begin{landscape}
+```
+
 ```{mermaid}
+%%| fig-width: 9
 %%| label: fig-architecture
 %%| fig-cap: "Component and data flow. Ingestion (dashed) runs offline and ahead of time; the query path (solid) is what a user experiences. Everything inside the boundary runs on the user's machine."
 flowchart TB
@@ -247,6 +253,10 @@ flowchart TB
     class CC,SC,DOCS,DIGS store
     class EMB,LLM,CLS model
     class UC,UP eph
+```
+
+```{=latex}
+\end{landscape}
 ```
 
 The query path is: classify the question, retrieve from the matching pool under
