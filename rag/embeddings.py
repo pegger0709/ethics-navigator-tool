@@ -9,6 +9,7 @@ import hashlib
 import io
 import os
 import re
+import time
 
 import chromadb
 from chromadb.utils.embedding_functions.ollama_embedding_function import (
@@ -23,6 +24,16 @@ from rag.corpus import jurisdiction_of
 load_dotenv()
 
 COLLECTION_NAME = "ethics_docs"
+# Uploaded documents live in their own collection, never alongside the reference
+# corpus. Partner material is confidential and must not outlive the session that
+# introduced it, and a separate collection makes removing it a whole-collection
+# delete rather than a filtered one: a wrong filter can spare a chunk, but
+# dropping a collection cannot reach content or digest chunks at all.
+SESSION_COLLECTION_NAME = "ethics_session"
+# How long an uploaded document may survive without the session being ended
+# explicitly. Closing a browser tab tells the server nothing, so age is the
+# backstop that bounds exposure when nobody clicks anything.
+SESSION_TTL_SECONDS = int(os.getenv("SESSION_TTL_SECONDS", "7200"))
 DOCUMENTS_DIR = os.getenv("DOCUMENTS_DIR", "data/documents")
 # Digests are plain-text files, one per source document, committed to the repo.
 # Keeping them on disk rather than only in Chroma means they survive the vector
@@ -49,15 +60,62 @@ def get_chroma_client():
     return chromadb.PersistentClient(path=CHROMA_PERSIST_DIR)
 
 
-def get_collection():
-    """Get-or-create the documents collection with the Ollama embedder."""
-    client = get_chroma_client()
-    embedder = OllamaEmbeddingFunction(
+def _embedder():
+    return OllamaEmbeddingFunction(
         url=OLLAMA_HOST, model_name=EMBED_MODEL, timeout=EMBED_TIMEOUT
     )
+
+
+def get_collection():
+    """Get-or-create the reference-corpus collection with the Ollama embedder."""
+    client = get_chroma_client()
     return client.get_or_create_collection(
-        name=COLLECTION_NAME, embedding_function=embedder
+        name=COLLECTION_NAME, embedding_function=_embedder()
     )
+
+
+def get_session_collection():
+    """Get-or-create the ephemeral collection holding uploaded documents.
+
+    Same embedding function as the corpus, so chunks from both sit in one vector
+    space and distances are comparable when the two are searched together.
+    """
+    client = get_chroma_client()
+    return client.get_or_create_collection(
+        name=SESSION_COLLECTION_NAME, embedding_function=_embedder()
+    )
+
+
+def purge_session_store() -> None:
+    """Drop the session collection entirely, uploads and all.
+
+    Deliberately a collection-level delete rather than a filtered one: there is
+    no query to get wrong, and it cannot touch the reference corpus. Safe to
+    call when the collection does not exist, which is the normal case on a
+    first run.
+    """
+    client = get_chroma_client()
+    try:
+        client.delete_collection(name=SESSION_COLLECTION_NAME)
+    except Exception:  # noqa: BLE001 — "not found" is the expected failure here
+        pass
+
+
+def sweep_expired_uploads(max_age: int = SESSION_TTL_SECONDS) -> int:
+    """Delete uploaded chunks older than ``max_age`` seconds. Returns the count.
+
+    Streamlit has no session-end hook — a closed tab never reaches the server —
+    so a purge that only ran on an explicit action would leave documents behind
+    whenever a user simply walked away. This runs on every interaction and
+    bounds how long that can last.
+    """
+    collection = get_session_collection()
+    cutoff = time.time() - max_age
+    stale = collection.get(where={"indexed_at": {"$lt": cutoff}}, include=["metadatas"])
+    ids = stale.get("ids", [])
+    if ids:
+        collection.delete(ids=ids)
+    return len(ids)
 
 
 def extract_text(filename: str, data: bytes) -> str:
@@ -69,6 +127,97 @@ def extract_text(filename: str, data: bytes) -> str:
     if ext in {".txt", ".md"}:
         return data.decode("utf-8", errors="replace")
     raise ValueError(f"Unsupported file type: {filename}")
+
+
+_HEADING_RE = re.compile(r"^(#{1,6})\s+(.*)$")
+
+# Sections that repeat the document's own title and publisher on every line, so
+# they rank highly against any query that names the document (e.g. "the OECD
+# document") without ever answering it — this is what "oecd-due-regard" in
+# evals/dataset.py measures. A table of contents is dropped unconditionally: a
+# list of headings and page numbers carries no information a heading-aware
+# chunker doesn't already have. Anything else is checked against the same
+# publisher/rights phrases used for front matter below, so a real heading that
+# happens to share one of these titles (e.g. a document with its own
+# substantive "Note" section) is not silently deleted.
+# This list is audited against every document in data/documents/, not
+# inferred generically — re-check it against the actual heading structure
+# (`grep -n '^#\{1,6\} '`) before adding a document, rather than assuming a
+# new document's sections match these titles' meaning here.
+_TOC_HEADINGS = {"contents", "table of contents"}
+_CONDITIONAL_BOILERPLATE_HEADINGS = {"note", "about the oecd", "oecd legal instruments"}
+_BOILERPLATE_MARKERS = (
+    "please cite this document as",
+    "photo credit",
+    "all worldwide rights reserved",
+    "reproduced and distributed free of charge",
+    "unofficial translation",
+    "the oecd is a unique forum",
+    "substantive oecd legal instruments",
+)
+
+# A table-of-contents *heading* does not reliably bound a table-of-contents
+# *section*: in both documents this fires on, the entry list is followed by an
+# un-headed paragraph of real provenance text before the next heading (e.g.
+# GuidingPrinciplesBusinessHR_EN's "This publication contains ..." /
+# "The Human Rights Council endorsed ..."). Deleting the whole span would take
+# that prose with it, so within a contents section only lines that look like
+# an actual entry are removed: a numbered/lettered outline label followed by a
+# trailing page number, with or without dot leaders in between
+# (`I. FOO 3`, `A. Bar 4`, `1798.100. Some Title.......... 6`).
+_TOC_ENTRY_RE = re.compile(r"^\s*(?:[IVXLC]+\.|[A-Za-z]\.|\d[\d.]*\.)\s.*\d\s*$")
+
+
+def strip_boilerplate(text: str) -> str:
+    """Drop publisher/administrative sections and front matter before chunking.
+
+    Two things are removed, both identified by heading rather than by
+    document, so the rule travels with any document converted to markdown
+    with real headings: table-of-contents entries (pure noise: they duplicate
+    headings the chunker already sees, with page numbers that mean nothing
+    once indexed), and named sections or an un-headed front-matter block whose
+    text matches a known publisher/rights phrase. Everything else — including
+    the operative legal text — is left untouched.
+    """
+    lines = text.splitlines()
+    headings = [
+        (i, m.group(1), m.group(2).strip())
+        for i, line in enumerate(lines)
+        if (m := _HEADING_RE.match(line))
+    ]
+    if not headings:
+        return text
+
+    keep = [True] * len(lines)
+
+    def section_end(pos: int) -> int:
+        return headings[pos + 1][0] if pos + 1 < len(headings) else len(lines)
+
+    # Front matter: an un-headed block between the title and the next heading.
+    if len(headings) > 1:
+        start, end = headings[0][0] + 1, headings[1][0]
+        block = "\n".join(lines[start:end]).lower()
+        if any(marker in block for marker in _BOILERPLATE_MARKERS):
+            for i in range(start, end):
+                keep[i] = False
+
+    for pos, (idx, _, title) in enumerate(headings):
+        normalized = title.lower()
+        end = section_end(pos)
+
+        if normalized in _TOC_HEADINGS:
+            for i in range(idx, end):
+                if i == idx or _TOC_ENTRY_RE.match(lines[i]):
+                    keep[i] = False
+            continue
+
+        if normalized in _CONDITIONAL_BOILERPLATE_HEADINGS:
+            body = "\n".join(lines[idx + 1 : end]).lower()
+            if any(marker in body for marker in _BOILERPLATE_MARKERS):
+                for i in range(idx, end):
+                    keep[i] = False
+
+    return "\n".join(line for line, k in zip(lines, keep) if k)
 
 
 CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "500"))
@@ -219,6 +368,41 @@ def read_digest_statements(path: str) -> list[str]:
     return statements
 
 
+# Preferred order when the same document is present in more than one format.
+# Markdown wins because the conversion carries real headings, which chunking
+# splits on; the PDF is kept as the unaltered original, not as an index source.
+_FORMAT_PRIORITY = (".md", ".txt", ".pdf")
+
+
+def resolve_sources(directory: str = DOCUMENTS_DIR) -> dict[str, str]:
+    """Map filename stem -> the one file to index for it.
+
+    A document may sit in ``data/documents`` in several formats at once: the
+    converted markdown that gets indexed, alongside the original PDF kept for
+    provenance. ``rag.corpus`` already treats the stem as a document's identity,
+    and indexing both formats would put two near-identical copies of every
+    document into the collection — halving the number of *distinct* passages a
+    given ``k`` can reach, and letting a document outvote the rest of the corpus
+    simply because it is stored twice.
+    """
+    chosen: dict[str, str] = {}
+    if not os.path.isdir(directory):
+        return chosen
+    for filename in sorted(os.listdir(directory)):
+        if not os.path.isfile(os.path.join(directory, filename)):
+            continue
+        stem, ext = os.path.splitext(filename)
+        ext = ext.lower()
+        if ext not in SUPPORTED_EXTENSIONS:
+            continue
+        current = chosen.get(stem)
+        if current is None or _FORMAT_PRIORITY.index(ext) < _FORMAT_PRIORITY.index(
+            os.path.splitext(current)[1].lower()
+        ):
+            chosen[stem] = filename
+    return chosen
+
+
 def load_digests(directory: str = DIGESTS_DIR) -> dict[str, list[str]]:
     """Map source filename -> digest statements, from ``directory``.
 
@@ -228,11 +412,7 @@ def load_digests(directory: str = DIGESTS_DIR) -> dict[str, list[str]]:
     digests: dict[str, list[str]] = {}
     if not os.path.isdir(directory):
         return digests
-    stems = {
-        os.path.splitext(name)[0]: name
-        for name in os.listdir(DOCUMENTS_DIR)
-        if os.path.isfile(os.path.join(DOCUMENTS_DIR, name))
-    }
+    stems = resolve_sources()
     for filename in sorted(os.listdir(directory)):
         path = os.path.join(directory, filename)
         stem, ext = os.path.splitext(filename)
@@ -249,18 +429,17 @@ def load_digests(directory: str = DIGESTS_DIR) -> dict[str, list[str]]:
 
 
 def load_documents(directory: str = DOCUMENTS_DIR) -> list[tuple[str, str]]:
-    """Read every supported file in ``directory`` into ``(text, filename)`` pairs."""
+    """Read one file per document in ``directory`` into ``(text, filename)`` pairs.
+
+    Which file, when a document is held in several formats, is decided by
+    :func:`resolve_sources`.
+    """
     pairs = []
-    if not os.path.isdir(directory):
-        return pairs
-    for filename in sorted(os.listdir(directory)):
+    for filename in sorted(resolve_sources(directory).values()):
         path = os.path.join(directory, filename)
-        if not os.path.isfile(path):
-            continue
-        if os.path.splitext(filename)[1].lower() not in SUPPORTED_EXTENSIONS:
-            continue
         with open(path, "rb") as handle:
-            pairs.append((extract_text(filename, handle.read()), filename))
+            text = strip_boilerplate(extract_text(filename, handle.read()))
+        pairs.append((text, filename))
     return pairs
 
 
@@ -339,26 +518,64 @@ def _sync_digests(collection, on_disk_sources: set[str]) -> int:
     return total
 
 
-def ingest_uploads(uploaded_files) -> int:
-    """Ingest files from the Streamlit uploader.
+def _upsert_session_chunks(
+    collection, chunks: list[str], source: str, session_id: str, indexed_at: float
+) -> int:
+    """Upsert uploaded chunks, tagged with the session that introduced them.
 
-    Each file is also saved into ``DOCUMENTS_DIR`` so the corpus persists across
-    restarts (the directory is a mounted volume in Docker). Returns total chunks.
+    Ids are namespaced by session so two sessions uploading the same filename
+    do not overwrite each other's chunks.
     """
-    collection = get_collection()
-    os.makedirs(DOCUMENTS_DIR, exist_ok=True)
+    ids = [f"{session_id}:{source}:{i}" for i in range(len(chunks))]
+    metadata = {
+        "source": source,
+        "kind": KIND_CONTENT,
+        "session_id": session_id,
+        "indexed_at": indexed_at,
+    }
+    for start in range(0, len(chunks), UPSERT_BATCH_SIZE):
+        end = start + UPSERT_BATCH_SIZE
+        batch = chunks[start:end]
+        collection.upsert(
+            ids=ids[start:end],
+            documents=batch,
+            metadatas=[dict(metadata) for _ in batch],
+        )
+    return len(chunks)
+
+
+def ingest_uploads(uploaded_files, session_id: str) -> int:
+    """Index uploads into the ephemeral session store. Returns total chunks.
+
+    Nothing is written to disk. The bytes are read from the uploader, extracted,
+    chunked, embedded and dropped, so the only copy that outlives the call is
+    the chunk text inside the session collection — which
+    :func:`purge_session_store` removes in full. Uploaded material is
+    confidential partner content, and a file left in ``DOCUMENTS_DIR`` would
+    survive every purge and be re-indexed into the *reference corpus* on the
+    next startup.
+    """
+    collection = get_session_collection()
+    now = time.time()
     total = 0
     for uploaded in uploaded_files:
-        data = uploaded.getvalue()
         # basename strips any directory components a crafted upload name might
-        # carry, keeping writes inside DOCUMENTS_DIR.
+        # carry; nothing is written to disk, but the name reaches chunk ids.
         safe_name = os.path.basename(uploaded.name)
         if not safe_name or safe_name in (".", ".."):
             continue  # skip names that don't resolve to a real file
-        with open(os.path.join(DOCUMENTS_DIR, safe_name), "wb") as handle:
-            handle.write(data)
-        total += _add_document(collection, extract_text(safe_name, data), safe_name)
+        text = extract_text(safe_name, uploaded.getvalue())
+        total += _upsert_session_chunks(
+            collection, chunk_text(text), safe_name, session_id, now
+        )
     return total
+
+
+def list_session_sources(session_id: str) -> list[str]:
+    """Return sorted filenames uploaded in ``session_id``."""
+    collection = get_session_collection()
+    results = collection.get(where={"session_id": session_id}, include=["metadatas"])
+    return sorted({(m or {}).get("source", "unknown") for m in results["metadatas"]})
 
 
 def _sources_in(collection, kind: str | None = KIND_CONTENT) -> set[str]:
