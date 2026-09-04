@@ -52,7 +52,17 @@ summaries_ready = backend_ready and summaries.summaries_available()
 
 
 def end_session() -> None:
-    """Drop every uploaded document and clear the conversation."""
+    """Drop every uploaded document and clear the conversation.
+
+    Never touches the reference corpus — only the ``ethics_session``
+    collection. Records what was removed in ``session_state`` so the next
+    render can say so explicitly rather than leaving the user to infer the
+    purge happened from an empty chat and an empty sidebar.
+    """
+    st.session_state["last_purge"] = {
+        "documents": len(embeddings.list_session_sources(session_id)),
+        "turns": len(st.session_state["messages"]),
+    }
     embeddings.purge_session_store()
     st.session_state["messages"] = []
     st.session_state["session_id"] = uuid.uuid4().hex
@@ -114,7 +124,7 @@ with st.sidebar:
         st.rerun()
 
     if session_sources or st.session_state["messages"]:
-        if st.button("🗑️ End session and delete documents"):
+        if st.button("🗑️ End session and delete documents", key="purge_sidebar"):
             end_session()
             st.rerun()
 
@@ -176,6 +186,15 @@ def render_copy_button(text: str) -> None:
 st.title("🧭 Ethics Navigator")
 st.caption("Ask questions about your documents. Answers are grounded in them.")
 
+if "last_purge" in st.session_state:
+    purge = st.session_state.pop("last_purge")
+    st.success(
+        f"Purged {purge['documents']} uploaded document(s) and "
+        f"{purge['turns']} conversation turn(s). The reference corpus was not "
+        "touched and is still available.",
+        icon="✅",
+    )
+
 for message in st.session_state["messages"]:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
@@ -223,3 +242,15 @@ if prompt := st.chat_input("Ask a question…", disabled=not backend_ready):
         render_copy_button(response)
 
     st.session_state["messages"].append({"role": "assistant", "content": response})
+
+if session_sources or st.session_state["messages"]:
+    st.divider()
+    if st.button(
+        "🗑️ Purge uploaded documents & conversation",
+        type="primary",
+        key="purge_main",
+        help="Deletes every document added this session and clears the "
+        "conversation. The reference corpus is not affected.",
+    ):
+        end_session()
+        st.rerun()
